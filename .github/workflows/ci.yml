@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test (debug)
+        run: cargo test --workspace
+
+      # Release is not a redundant run. Overflow and shift semantics differ between
+      # profiles, and a rule that behaves differently in release is a desync waiting
+      # to happen between a release client and a differently-built server.
+      - name: Test (release)
+        run: cargo test --workspace --release
+
+      # Proves the engine stays usable by no_std consumers such as bots and solvers.
+      - name: Build engine without default features
+        run: cargo build -p engine --no-default-features
+
+      - name: Build engine for wasm32
+        run: |
+          cargo build -p engine --target wasm32-unknown-unknown
+          cargo build -p engine --target wasm32-unknown-unknown --no-default-features
+
+      - name: Engine purity guard
+        run: ./scripts/engine-purity.sh
+
+      - name: Docs build without broken links
+        run: cargo doc --no-deps --workspace
+        env:
+          RUSTDOCFLAGS: -D warnings

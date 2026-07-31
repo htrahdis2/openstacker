@@ -42,6 +42,8 @@ pub mod consts;
 pub mod events;
 pub mod fixed;
 pub mod input;
+pub mod kick;
+pub mod piece;
 pub mod quad;
 pub mod rng;
 
@@ -57,5 +59,7 @@ pub use consts::{
 pub use events::{Events, Stats, TickResult};
 pub use fixed::{ms_to_subticks, subticks_to_centiframes, subticks_to_ms};
 pub use input::{Buttons, Dir};
+pub use kick::{Kicked, rotate};
+pub use piece::Piece;
 pub use quad::{QuadKind, Rot};
 pub use rng::SplitMix64;

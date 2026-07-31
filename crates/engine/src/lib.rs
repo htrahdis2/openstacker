@@ -44,7 +44,7 @@ pub mod input;
 pub mod quad;
 
 pub use board::Board;
-pub use config::{FieldDesc, FieldKind, Tunable, Unit};
+pub use config::{FieldDesc, FieldKind, Handling, HandlingSub, IrsMode, Tunable, Unit};
 pub use consts::{
     BOARD_H, BOARD_W, ENGINE_VER, FULL_ROW, MAX_PREVIEW, SUBTICK, TICK_HZ, VISIBLE_H,
 };

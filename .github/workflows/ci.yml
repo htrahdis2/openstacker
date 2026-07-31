@@ -46,6 +46,11 @@ jobs:
       - name: Engine purity guard
         run: ./scripts/engine-purity.sh
 
+      # The client builds its settings screen from this file, so it must not fall
+      # behind the descriptor tables it is generated from.
+      - name: Settings schema is current
+        run: cargo run -q -p config --bin emit-schema -- --check
+
       - name: Docs build without broken links
         run: cargo doc --no-deps --workspace
         env:

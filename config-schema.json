@@ -1,0 +1,602 @@
+{
+  "groups": [
+    {
+      "affectsSimulation": true,
+      "fields": [
+        {
+          "default": 133,
+          "group": "handling.movement",
+          "help": "Delay before a held direction starts repeating. Lower feels faster but makes single taps harder to place.",
+          "key": "das_ms",
+          "label": "DAS",
+          "max": 500,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "ms"
+        },
+        {
+          "default": 0,
+          "group": "handling.movement",
+          "help": "Time between auto-repeat steps once DAS has charged. Zero moves the piece to the wall instantly.",
+          "key": "arr_ms",
+          "label": "ARR",
+          "max": 200,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "ms"
+        },
+        {
+          "default": 0,
+          "group": "handling.movement",
+          "help": "How long the new direction waits after a direction change. Zero re-charges DAS from scratch.",
+          "key": "dcd_ms",
+          "label": "DAS cancel on direction change",
+          "max": 200,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "ms"
+        },
+        {
+          "default": 0,
+          "group": "handling.drop",
+          "help": "Time to fall one row while soft dropping. Zero drops to the floor instantly.",
+          "key": "sdf_ms_per_row",
+          "label": "Soft drop speed",
+          "max": 500,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "ms"
+        },
+        {
+          "default": false,
+          "group": "handling.drop",
+          "help": "Lock immediately on reaching the floor under soft drop, skipping lock delay.",
+          "key": "soft_drop_lock",
+          "label": "Soft drop locks",
+          "type": "bool"
+        },
+        {
+          "default": 0,
+          "group": "handling.spawn",
+          "help": "After a spawn with a direction held, suppress auto-repeat this long so the new piece does not immediately fly sideways.",
+          "key": "das_cut_delay_ms",
+          "label": "DAS cut delay",
+          "max": 200,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "ms"
+        },
+        {
+          "default": 0,
+          "group": "handling.spawn",
+          "help": "Ignore hard drop this long after a spawn, so a fast repeat does not slam the next piece. Zero disables it.",
+          "key": "prevent_misdrop_ms",
+          "label": "Misdrop protection",
+          "max": 200,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "ms"
+        },
+        {
+          "default": "hold",
+          "group": "handling.spawn",
+          "help": "Whether a rotation held across a spawn applies to the new piece.",
+          "key": "irs",
+          "label": "Initial rotation",
+          "type": "enum",
+          "variants": [
+            {
+              "help": "A rotation held across a spawn does nothing.",
+              "label": "Off",
+              "value": "off"
+            },
+            {
+              "help": "A rotation button held at spawn pre-rotates the new piece.",
+              "label": "Hold",
+              "value": "hold"
+            },
+            {
+              "help": "Only a rotation pressed during the spawn delay pre-rotates.",
+              "label": "Tap",
+              "value": "tap"
+            }
+          ]
+        },
+        {
+          "default": true,
+          "group": "handling.spawn",
+          "help": "Whether a hold held across a spawn applies to the new piece.",
+          "key": "ihs",
+          "label": "Initial hold",
+          "type": "bool"
+        }
+      ],
+      "id": "handling",
+      "label": "Handling",
+      "nested": []
+    },
+    {
+      "affectsSimulation": true,
+      "fields": [
+        {
+          "default": 500,
+          "group": "match.timing",
+          "help": "How long a piece rests on the stack before locking.",
+          "key": "lock_delay_ms",
+          "label": "Lock delay",
+          "max": 5000,
+          "min": 0,
+          "step": 10,
+          "type": "int",
+          "unit": "ms"
+        },
+        {
+          "default": "extended",
+          "group": "match.timing",
+          "help": "Which actions restart lock delay.",
+          "key": "lock_reset_mode",
+          "label": "Lock reset",
+          "type": "enum",
+          "variants": [
+            {
+              "help": "Only descending a row resets lock delay.",
+              "label": "Classic",
+              "value": "classic"
+            },
+            {
+              "help": "Any move or rotation resets lock delay, up to the reset cap.",
+              "label": "Extended",
+              "value": "extended"
+            },
+            {
+              "help": "Any move or rotation resets lock delay, with no cap.",
+              "label": "Infinite",
+              "value": "infinite"
+            }
+          ]
+        },
+        {
+          "default": 15,
+          "group": "match.timing",
+          "help": "How many times lock delay may restart before the piece locks regardless. Only used by the extended reset mode.",
+          "key": "lock_reset_cap",
+          "label": "Lock reset cap",
+          "max": 255,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": ""
+        },
+        {
+          "default": 0,
+          "group": "match.timing",
+          "help": "Pause after rows clear, before the next piece spawns.",
+          "key": "clear_delay_ms",
+          "label": "Clear delay",
+          "max": 1000,
+          "min": 0,
+          "step": 10,
+          "type": "int",
+          "unit": "ms"
+        },
+        {
+          "default": 0,
+          "group": "match.timing",
+          "help": "Pause between a piece locking and the next one appearing.",
+          "key": "spawn_delay_ms",
+          "label": "Spawn delay",
+          "max": 1000,
+          "min": 0,
+          "step": 10,
+          "type": "int",
+          "unit": "ms"
+        },
+        {
+          "default": 5,
+          "group": "match.board",
+          "help": "How many upcoming pieces are shown.",
+          "key": "preview_len",
+          "label": "Preview",
+          "max": 7,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": ""
+        },
+        {
+          "default": true,
+          "group": "match.board",
+          "help": "Whether a piece can be set aside for later.",
+          "key": "hold_enabled",
+          "label": "Hold",
+          "type": "bool"
+        },
+        {
+          "default": "three_corner",
+          "group": "match.scoring",
+          "help": "How a spin is recognised for scoring.",
+          "key": "spin_detection",
+          "label": "Spin detection",
+          "type": "enum",
+          "variants": [
+            {
+              "help": "Spins are never recognised.",
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "help": "T pieces only, judged by occupied corners around the centre.",
+              "label": "Three corner",
+              "value": "three_corner"
+            },
+            {
+              "help": "T pieces only, judged by the piece being unable to move after locking.",
+              "label": "Immobile",
+              "value": "immobile"
+            },
+            {
+              "help": "Any piece that cannot move after locking counts as a spin.",
+              "label": "All spin",
+              "value": "all_spin"
+            }
+          ]
+        },
+        {
+          "default": 1,
+          "group": "match.scoring",
+          "help": "Extra rows sent for chaining hard clears without a plain clear in between.",
+          "key": "b2b_bonus",
+          "label": "Back-to-back bonus",
+          "max": 20,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": 1000,
+          "group": "match.garbage",
+          "help": "How long incoming rows wait before they enter the board. Must stay comfortably above round-trip latency, or rows arrive after the tick they were scheduled for.",
+          "key": "garbage_delay_ms",
+          "label": "Garbage delay",
+          "max": 10000,
+          "min": 0,
+          "step": 50,
+          "type": "int",
+          "unit": "ms"
+        },
+        {
+          "default": 8,
+          "group": "match.garbage",
+          "help": "Most rows that can enter the board at once.",
+          "key": "garbage_cap",
+          "label": "Garbage cap",
+          "max": 40,
+          "min": 1,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": true,
+          "group": "match.garbage",
+          "help": "Whether every row in one batch of garbage shares a hole column.",
+          "key": "garbage_hole_repeat",
+          "label": "Repeat garbage hole",
+          "type": "bool"
+        }
+      ],
+      "id": "match",
+      "label": "Match rules",
+      "nested": [
+        "gravity",
+        "attack_table",
+        "combo_table"
+      ]
+    },
+    {
+      "affectsSimulation": true,
+      "fields": [
+        {
+          "default": 0,
+          "group": "match.attack",
+          "help": "Rows sent to the opponent for this clear.",
+          "key": "single",
+          "label": "Single",
+          "max": 40,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": 1,
+          "group": "match.attack",
+          "help": "Rows sent to the opponent for this clear.",
+          "key": "double",
+          "label": "Double",
+          "max": 40,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": 2,
+          "group": "match.attack",
+          "help": "Rows sent to the opponent for this clear.",
+          "key": "triple",
+          "label": "Triple",
+          "max": 40,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": 4,
+          "group": "match.attack",
+          "help": "Rows sent to the opponent for this clear.",
+          "key": "quad",
+          "label": "Quad",
+          "max": 40,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": 0,
+          "group": "match.attack",
+          "help": "Rows sent to the opponent for this clear.",
+          "key": "mini_spin_single",
+          "label": "Mini spin single",
+          "max": 40,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": 1,
+          "group": "match.attack",
+          "help": "Rows sent to the opponent for this clear.",
+          "key": "mini_spin_double",
+          "label": "Mini spin double",
+          "max": 40,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": 2,
+          "group": "match.attack",
+          "help": "Rows sent to the opponent for this clear.",
+          "key": "spin_single",
+          "label": "Spin single",
+          "max": 40,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": 4,
+          "group": "match.attack",
+          "help": "Rows sent to the opponent for this clear.",
+          "key": "spin_double",
+          "label": "Spin double",
+          "max": 40,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": 6,
+          "group": "match.attack",
+          "help": "Rows sent to the opponent for this clear.",
+          "key": "spin_triple",
+          "label": "Spin triple",
+          "max": 40,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": 10,
+          "group": "match.attack",
+          "help": "Rows sent to the opponent for this clear.",
+          "key": "perfect_clear",
+          "label": "Perfect clear",
+          "max": 40,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        }
+      ],
+      "id": "attack_table",
+      "label": "Attack table",
+      "nested": []
+    },
+    {
+      "affectsSimulation": false,
+      "fields": [
+        {
+          "default": "",
+          "group": "keybinds",
+          "help": "Press a key to rebind this action.",
+          "key": "move_left",
+          "label": "Move left",
+          "type": "binding",
+          "variants": []
+        },
+        {
+          "default": "",
+          "group": "keybinds",
+          "help": "Press a key to rebind this action.",
+          "key": "move_right",
+          "label": "Move right",
+          "type": "binding",
+          "variants": []
+        },
+        {
+          "default": "",
+          "group": "keybinds",
+          "help": "Press a key to rebind this action.",
+          "key": "rotate_cw",
+          "label": "Rotate clockwise",
+          "type": "binding",
+          "variants": []
+        },
+        {
+          "default": "",
+          "group": "keybinds",
+          "help": "Press a key to rebind this action.",
+          "key": "rotate_ccw",
+          "label": "Rotate counter-clockwise",
+          "type": "binding",
+          "variants": []
+        },
+        {
+          "default": "",
+          "group": "keybinds",
+          "help": "Press a key to rebind this action.",
+          "key": "rotate_flip",
+          "label": "Rotate 180",
+          "type": "binding",
+          "variants": []
+        },
+        {
+          "default": "",
+          "group": "keybinds",
+          "help": "Press a key to rebind this action.",
+          "key": "hold",
+          "label": "Hold",
+          "type": "binding",
+          "variants": []
+        },
+        {
+          "default": "",
+          "group": "keybinds",
+          "help": "Press a key to rebind this action.",
+          "key": "soft_drop",
+          "label": "Soft drop",
+          "type": "binding",
+          "variants": []
+        },
+        {
+          "default": "",
+          "group": "keybinds",
+          "help": "Press a key to rebind this action.",
+          "key": "hard_drop",
+          "label": "Hard drop",
+          "type": "binding",
+          "variants": []
+        }
+      ],
+      "id": "keybinds",
+      "label": "Controls",
+      "nested": []
+    },
+    {
+      "affectsSimulation": false,
+      "fields": [
+        {
+          "default": "default",
+          "group": "cosmetic.display",
+          "help": "Which bundled theme to draw with.",
+          "key": "skin",
+          "label": "Skin",
+          "type": "enum",
+          "variants": [
+            {
+              "help": "The bundled theme.",
+              "label": "Default",
+              "value": "default"
+            },
+            {
+              "help": "One color for every piece.",
+              "label": "Monochrome",
+              "value": "mono"
+            },
+            {
+              "help": "Maximum separation between adjacent pieces.",
+              "label": "High contrast",
+              "value": "high_contrast"
+            }
+          ]
+        },
+        {
+          "default": 35,
+          "group": "cosmetic.display",
+          "help": "How visible the landing preview is. Zero hides it.",
+          "key": "ghost_opacity",
+          "label": "Ghost opacity",
+          "max": 100,
+          "min": 0,
+          "step": 5,
+          "type": "int",
+          "unit": ""
+        },
+        {
+          "default": 100,
+          "group": "cosmetic.display",
+          "help": "Board size, as a percentage of the default.",
+          "key": "board_scale",
+          "label": "Board scale",
+          "max": 200,
+          "min": 50,
+          "step": 5,
+          "type": "int",
+          "unit": ""
+        },
+        {
+          "default": true,
+          "group": "cosmetic.display",
+          "help": "Draw column and row guides behind the stack.",
+          "key": "show_grid",
+          "label": "Show grid",
+          "type": "bool"
+        },
+        {
+          "default": 50,
+          "group": "cosmetic.audio",
+          "help": "",
+          "key": "music_volume",
+          "label": "Music",
+          "max": 100,
+          "min": 0,
+          "step": 5,
+          "type": "int",
+          "unit": ""
+        },
+        {
+          "default": 70,
+          "group": "cosmetic.audio",
+          "help": "",
+          "key": "effects_volume",
+          "label": "Effects",
+          "max": 100,
+          "min": 0,
+          "step": 5,
+          "type": "int",
+          "unit": ""
+        }
+      ],
+      "id": "cosmetic",
+      "label": "Appearance",
+      "nested": []
+    }
+  ],
+  "version": 1
+}

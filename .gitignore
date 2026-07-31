@@ -2,7 +2,6 @@
 **/*.rs.bk
 *.pdb
 .DS_Store
-config-schema.json.new
 
 # Rust doc output
 /target/doc

@@ -1,0 +1,14 @@
+[package]
+name = "config"
+description = "Reads game modes and player settings, and emits the settings schema."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+
+[dependencies]
+engine = { path = "../engine" }
+serde = { workspace = true, features = ["std"] }
+serde_json = "1"
+toml = "0.9"
+thiserror = "2"

@@ -1,0 +1,18 @@
+spec_version = 1
+id           = "sprint40"
+name         = "Sprint 40"
+description  = "Clear 40 rows as fast as you can."
+
+[goal]
+type  = "lines"
+count = 40
+
+[config]
+lock_delay_ms  = 500
+lock_reset_cap = 15
+preview_len    = 5
+spin_detection = "three_corner"
+
+[config.gravity]
+type       = "fixed"
+ms_per_row = 1000

@@ -1,0 +1,23 @@
+spec_version = 1
+id           = "blitz"
+name         = "Blitz"
+description  = "Score as much as possible in two minutes. Gravity ramps up as it goes."
+
+[goal]
+type = "time"
+ms   = 120000
+
+[config]
+lock_delay_ms  = 500
+preview_len    = 5
+spin_detection = "three_corner"
+
+# The last stage holds forever, so the final entry is the endgame speed.
+[config.gravity]
+type = "staged"
+stages = [
+  { from_tick = 0,    ms_per_row = 1000 },
+  { from_tick = 1800, ms_per_row = 500 },
+  { from_tick = 3600, ms_per_row = 250 },
+  { from_tick = 5400, ms_per_row = 100 },
+]

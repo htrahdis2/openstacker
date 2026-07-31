@@ -160,6 +160,56 @@ impl Default for AttackTable {
     }
 }
 
+/// Most rows any single clear may send. Generous, since modes are free to be strange.
+const MAX_ATTACK: i64 = 40;
+
+/// Build an attack-table descriptor. Every entry has the same shape, so spelling each
+/// out longhand would be twelve near-identical blocks.
+const fn attack(key: &'static str, label: &'static str, default: i64) -> FieldDesc {
+    FieldDesc {
+        key,
+        label,
+        help: "Rows sent to the opponent for this clear.",
+        group: "match.attack",
+        kind: FieldKind::Int {
+            min: 0,
+            max: MAX_ATTACK,
+            default,
+            step: 1,
+            unit: Unit::Rows,
+        },
+    }
+}
+
+impl Tunable for AttackTable {
+    const FIELDS: &'static [FieldDesc] = &[
+        attack("single", "Single", 0),
+        attack("double", "Double", 1),
+        attack("triple", "Triple", 2),
+        attack("quad", "Quad", 4),
+        attack("mini_spin_single", "Mini spin single", 0),
+        attack("mini_spin_double", "Mini spin double", 1),
+        attack("spin_single", "Spin single", 2),
+        attack("spin_double", "Spin double", 4),
+        attack("spin_triple", "Spin triple", 6),
+        attack("perfect_clear", "Perfect clear", 10),
+    ];
+
+    fn clamp(&mut self) {
+        let f = |k| field(Self::FIELDS, k);
+        self.single = f("single").clamp_u8(self.single);
+        self.double = f("double").clamp_u8(self.double);
+        self.triple = f("triple").clamp_u8(self.triple);
+        self.quad = f("quad").clamp_u8(self.quad);
+        self.mini_spin_single = f("mini_spin_single").clamp_u8(self.mini_spin_single);
+        self.mini_spin_double = f("mini_spin_double").clamp_u8(self.mini_spin_double);
+        self.spin_single = f("spin_single").clamp_u8(self.spin_single);
+        self.spin_double = f("spin_double").clamp_u8(self.spin_double);
+        self.spin_triple = f("spin_triple").clamp_u8(self.spin_triple);
+        self.perfect_clear = f("perfect_clear").clamp_u8(self.perfect_clear);
+    }
+}
+
 const TIMING: &str = "match.timing";
 const BOARD: &str = "match.board";
 const SCORING: &str = "match.scoring";
@@ -473,6 +523,26 @@ mod tests {
     #[test]
     fn descriptors_cover_every_serde_field() {
         crate::config::assert_descriptors_match_serde_fields(&MatchConfig::default());
+        crate::config::assert_descriptors_match_serde_fields(&AttackTable::default());
+    }
+
+    #[test]
+    fn attack_table_descriptor_defaults_match_the_struct_default() {
+        let d = AttackTable::default();
+        let int = |k| match field(AttackTable::FIELDS, k).kind {
+            FieldKind::Int { default, .. } => default,
+            _ => panic!("{k} is not an int field"),
+        };
+        assert_eq!(int("single"), d.single as i64);
+        assert_eq!(int("double"), d.double as i64);
+        assert_eq!(int("triple"), d.triple as i64);
+        assert_eq!(int("quad"), d.quad as i64);
+        assert_eq!(int("mini_spin_single"), d.mini_spin_single as i64);
+        assert_eq!(int("mini_spin_double"), d.mini_spin_double as i64);
+        assert_eq!(int("spin_single"), d.spin_single as i64);
+        assert_eq!(int("spin_double"), d.spin_double as i64);
+        assert_eq!(int("spin_triple"), d.spin_triple as i64);
+        assert_eq!(int("perfect_clear"), d.perfect_clear as i64);
     }
 
     #[test]

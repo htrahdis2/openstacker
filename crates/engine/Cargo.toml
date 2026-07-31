@@ -1,0 +1,20 @@
+[package]
+name = "engine"
+description = "Deterministic falling-block simulation. No I/O, no time, no async, no floats."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
+
+[features]
+default = ["std", "serde"]
+std = []
+serde = ["dep:serde", "arrayvec/serde", "bitflags/serde"]
+
+[dependencies]
+arrayvec.workspace = true
+bitflags.workspace = true
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+proptest = "1"

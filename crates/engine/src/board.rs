@@ -12,6 +12,11 @@
 use crate::consts::{BOARD_H, BOARD_W, COLOR_EMPTY, COLOR_GARBAGE, FULL_ROW};
 use core::fmt;
 
+/// The playfield.
+///
+/// `PartialEq` compares the render channel as well as occupancy, which is convenient in
+/// tests but wrong for desync detection. Use [`Board::sim_eq`] or the state checksum for
+/// that; colors are presentation and are deliberately outside the determinism contract.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Board {
     rows: [u16; BOARD_H],
@@ -58,7 +63,7 @@ impl Board {
 
     /// Collision test in signed space, for pieces mid-kick.
     ///
-    /// Out of bounds horizontally, or below the floor, is blocked — those are walls.
+    /// Out of bounds horizontally, or below the floor, is blocked; those are walls.
     /// Above the top of the buffer is **free**, so a kick that momentarily reaches above
     /// row 0 is legal.
     #[inline]
@@ -82,7 +87,7 @@ impl Board {
         self.rows[y] == 0
     }
 
-    /// Whether the whole playfield is empty — the perfect-clear test.
+    /// Whether the whole playfield is empty. This is the perfect-clear test.
     pub fn is_empty(&self) -> bool {
         self.rows.iter().all(|&r| r == 0)
     }
@@ -97,6 +102,15 @@ impl Board {
     /// only ever changes in legal increments.
     pub fn cell_count(&self) -> u32 {
         self.rows.iter().map(|r| r.count_ones()).sum()
+    }
+
+    /// Compare only simulation-visible state, ignoring the render channel.
+    ///
+    /// Desync detection must use this or the state checksum rather than `==`, which also
+    /// compares colors. Two peers that agree on the game but disagree on a skin are not
+    /// desynced.
+    pub fn sim_eq(&self, other: &Board) -> bool {
+        self.rows == other.rows
     }
 
     // ---- writes ------------------------------------------------------------
@@ -157,15 +171,23 @@ impl Board {
     /// a topout. The hole column is always supplied by the caller and is never derived
     /// from the engine's RNG stream, so that an authoritative peer can choose it from
     /// its own stream and both sides stay in agreement.
+    ///
+    /// `amount` and `hole_col` are **clamped**, and deliberately not asserted. Both
+    /// arrive from an untrusted peer in a networked game, and `1 << hole_col` for an
+    /// out-of-range column panics in debug but is silently masked in release, which would
+    /// desync two clients rather than fail loudly.
+    ///
+    /// A `debug_assert` would be worse than nothing here: it makes debug and release
+    /// builds disagree, so a debug-built server would panic on input that a release-built
+    /// client happily clamps. Every peer must clamp identically, in every profile.
+    /// Rejecting out-of-range values before they reach the board is the protocol layer's
+    /// job.
     pub fn push_garbage(&mut self, amount: usize, hole_col: usize) -> bool {
-        debug_assert!(
-            hole_col < BOARD_W,
-            "hole column {hole_col} is off the board"
-        );
         if amount == 0 {
             return false;
         }
         let amount = amount.min(BOARD_H);
+        let hole_col = hole_col.min(BOARD_W - 1);
 
         let overflow = self.rows[..amount].iter().any(|&r| r != 0);
 
@@ -349,6 +371,46 @@ mod tests {
         let mut b2 = Board::new();
         b2.set(0, BOARD_H - 1, 5);
         assert!(!b2.push_garbage(1, 3), "a low stack should not overflow");
+    }
+
+    #[test]
+    fn out_of_range_garbage_is_clamped_rather_than_masked() {
+        // A hole column past the board edge must not wrap around via a masked shift.
+        // Two peers receiving the same malformed value must reach the same board, and
+        // must do so in debug and release alike. A profile-dependent panic here would
+        // mean a debug server and a release client disagree about a malformed packet.
+        let mut a = Board::new();
+        let mut b = Board::new();
+        a.push_garbage(1, BOARD_W); // one past the edge
+        b.push_garbage(1, 999);
+        assert!(
+            a.sim_eq(&b),
+            "clamping must be deterministic across callers"
+        );
+        assert_eq!(a.row(BOARD_H - 1).count_ones(), BOARD_W as u32 - 1);
+        assert!(
+            !a.occupied(BOARD_W - 1, BOARD_H - 1),
+            "hole lands on last column"
+        );
+
+        // An amount past the board height fills the board rather than panicking.
+        let mut c = Board::new();
+        assert!(!c.push_garbage(BOARD_H * 3, 0));
+        assert_eq!(c.cell_count(), (BOARD_H * (BOARD_W - 1)) as u32);
+    }
+
+    #[test]
+    fn sim_eq_ignores_the_render_channel() {
+        let mut a = Board::new();
+        let mut b = Board::new();
+        a.set(3, BOARD_H - 1, 1);
+        b.set(3, BOARD_H - 1, 7); // same cell, different color
+
+        assert!(a.sim_eq(&b), "a color difference is not a desync");
+        assert_ne!(
+            a, b,
+            "PartialEq still sees the color, which is why sim_eq exists"
+        );
     }
 
     #[test]

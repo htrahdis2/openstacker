@@ -33,12 +33,14 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::float_arithmetic)]
 
+pub mod board;
 pub mod consts;
 pub mod events;
 pub mod fixed;
 pub mod input;
 pub mod quad;
 
+pub use board::Board;
 pub use consts::{
     BOARD_H, BOARD_W, ENGINE_VER, FULL_ROW, MAX_PREVIEW, SUBTICK, TICK_HZ, VISIBLE_H,
 };

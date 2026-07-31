@@ -132,8 +132,14 @@ impl Engine {
     pub fn board(&self) -> &Board {
         &self.board
     }
-    pub fn active(&self) -> Piece {
-        self.active
+    /// The falling piece, or `None` when there is not one.
+    ///
+    /// There is no piece during a spawn or clear delay, or once the game is over. This
+    /// returns an option rather than a stale piece because the leftover value is the one
+    /// that was just locked, so it sits exactly on top of its own cells: anything
+    /// drawing it unconditionally would paint a duplicate piece over the stack.
+    pub fn active(&self) -> Option<Piece> {
+        matches!(self.phase, Phase::Falling | Phase::Locking).then_some(self.active)
     }
     pub fn hold(&self) -> Option<QuadKind> {
         self.hold
@@ -156,9 +162,10 @@ impl Engine {
     pub fn pending_garbage(&self) -> &GarbageQueue {
         &self.garbage
     }
-    /// Where the active piece would land. Render-only.
-    pub fn ghost(&self) -> Piece {
-        self.active.landed(&self.board)
+    /// Where the falling piece would land, or `None` when there is no piece.
+    /// Render-only.
+    pub fn ghost(&self) -> Option<Piece> {
+        self.active().map(|p| p.landed(&self.board))
     }
 
     /// Queue garbage for a future tick.

@@ -109,7 +109,7 @@ fn different_seeds_produce_different_games() {
 fn a_held_direction_carries_the_piece_to_the_wall() {
     let mut e = engine();
     run(&mut e, Buttons::LEFT, 30);
-    let cells = e.active().cells();
+    let cells = e.active().unwrap().cells();
     assert_eq!(
         cells.iter().map(|c| c.0).min().unwrap(),
         0,
@@ -122,7 +122,7 @@ fn a_piece_never_leaves_the_board_however_long_a_direction_is_held() {
     let mut e = engine();
     for dir in [Buttons::LEFT, Buttons::RIGHT] {
         run(&mut e, dir, 200);
-        for (x, _) in e.active().cells() {
+        for (x, _) in e.active().unwrap().cells() {
             assert!((0..BOARD_W as i32).contains(&x), "escaped at x={x}");
         }
     }
@@ -138,18 +138,26 @@ fn das_delays_the_repeat_but_not_the_first_step() {
         ..snappy()
     };
     let mut e = Engine::new(1, &calm(), &handling);
-    let start = e.active().x;
+    let start = e.active().unwrap().x;
 
     e.tick(Buttons::LEFT);
-    assert_eq!(e.active().x, start - 1, "the first step is immediate");
+    assert_eq!(
+        e.active().unwrap().x,
+        start - 1,
+        "the first step is immediate"
+    );
 
     // Still within the delay: no further movement.
     run(&mut e, Buttons::LEFT, 5);
-    assert_eq!(e.active().x, start - 1, "repeat started before DAS elapsed");
+    assert_eq!(
+        e.active().unwrap().x,
+        start - 1,
+        "repeat started before DAS elapsed"
+    );
 
     // Past the delay: the piece runs to the wall.
     run(&mut e, Buttons::LEFT, 20);
-    assert!(e.active().x < start - 1, "repeat never started");
+    assert!(e.active().unwrap().x < start - 1, "repeat never started");
 }
 
 #[test]
@@ -161,14 +169,18 @@ fn releasing_a_direction_recharges_the_delay() {
     };
     let mut e = Engine::new(1, &calm(), &handling);
     run(&mut e, Buttons::LEFT, 30);
-    let at_wall = e.active().x;
+    let at_wall = e.active().unwrap().x;
 
     idle(&mut e, 1);
     e.tick(Buttons::RIGHT);
-    assert_eq!(e.active().x, at_wall + 1, "one step, then the delay again");
+    assert_eq!(
+        e.active().unwrap().x,
+        at_wall + 1,
+        "one step, then the delay again"
+    );
     run(&mut e, Buttons::RIGHT, 5);
     assert_eq!(
-        e.active().x,
+        e.active().unwrap().x,
         at_wall + 1,
         "repeat resumed without recharging"
     );
@@ -180,10 +192,10 @@ fn releasing_a_direction_recharges_the_delay() {
 fn rotation_is_edge_triggered() {
     // Holding the button must not spin the piece every frame.
     let mut e = engine();
-    let start = e.active().rot;
+    let start = e.active().unwrap().rot;
     run(&mut e, Buttons::CW, 10);
     assert_eq!(
-        e.active().rot,
+        e.active().unwrap().rot,
         start.cw(),
         "held rotation fired more than once"
     );
@@ -192,13 +204,13 @@ fn rotation_is_edge_triggered() {
 #[test]
 fn each_rotation_button_turns_the_expected_way() {
     let mut e = engine();
-    let start = e.active().rot;
+    let start = e.active().unwrap().rot;
     tap(&mut e, Buttons::CW);
-    assert_eq!(e.active().rot, start.cw());
+    assert_eq!(e.active().unwrap().rot, start.cw());
     tap(&mut e, Buttons::CCW);
-    assert_eq!(e.active().rot, start);
+    assert_eq!(e.active().unwrap().rot, start);
     tap(&mut e, Buttons::FLIP);
-    assert_eq!(e.active().rot, start.flip());
+    assert_eq!(e.active().unwrap().rot, start.flip());
 }
 
 // ---- dropping and locking --------------------------------------------------
@@ -273,16 +285,16 @@ fn infinite_reset_lets_a_piece_be_held_indefinitely() {
 #[test]
 fn hold_stores_a_piece_and_swaps_it_back() {
     let mut e = engine();
-    let first = e.active().kind;
+    let first = e.active().unwrap().kind;
     tap(&mut e, Buttons::HOLD);
     assert_eq!(e.hold(), Some(first));
-    let second = e.active().kind;
+    let second = e.active().unwrap().kind;
     assert_ne!(second, first, "hold should have produced a different piece");
 
     // Hold is spent until a piece locks.
     tap(&mut e, Buttons::HOLD);
     assert_eq!(
-        e.active().kind,
+        e.active().unwrap().kind,
         second,
         "hold should not work twice in a row"
     );
@@ -290,7 +302,11 @@ fn hold_stores_a_piece_and_swaps_it_back() {
     e.tick(Buttons::HARD_DROP);
     e.tick(Buttons::empty());
     tap(&mut e, Buttons::HOLD);
-    assert_eq!(e.active().kind, first, "the stored piece should come back");
+    assert_eq!(
+        e.active().unwrap().kind,
+        first,
+        "the stored piece should come back"
+    );
 }
 
 #[test]
@@ -300,10 +316,10 @@ fn hold_can_be_switched_off_by_a_mode() {
         ..calm()
     };
     let mut e = Engine::new(1, &config, &snappy());
-    let first = e.active().kind;
+    let first = e.active().unwrap().kind;
     tap(&mut e, Buttons::HOLD);
     assert!(e.hold().is_none());
-    assert_eq!(e.active().kind, first);
+    assert_eq!(e.active().unwrap().kind, first);
 }
 
 // ---- clearing --------------------------------------------------------------
@@ -325,7 +341,7 @@ fn set_up_a_quad(rows: u8, hole_col: u8) -> Engine {
     };
     let mut e = Engine::new(I_FIRST_SEED, &config, &snappy());
     assert_eq!(
-        e.active().kind,
+        e.active().unwrap().kind,
         QuadKind::I,
         "the seed no longer opens with an I"
     );
@@ -344,7 +360,7 @@ fn set_up_a_quad(rows: u8, hole_col: u8) -> Engine {
         e.tick(Buttons::RIGHT);
         e.tick(Buttons::empty());
     }
-    let occupied: Vec<i32> = e.active().cells().iter().map(|c| c.0).collect();
+    let occupied: Vec<i32> = e.active().unwrap().cells().iter().map(|c| c.0).collect();
     assert!(
         occupied.iter().all(|&x| x == hole_col as i32),
         "the I should be standing in column {hole_col}, got {occupied:?}"
@@ -621,7 +637,7 @@ fn the_piece_never_overlaps_the_stack() {
         if e.is_over() {
             break;
         }
-        for (x, y) in e.active().cells() {
+        for (x, y) in e.active().unwrap().cells() {
             assert!(
                 (0..BOARD_W as i32).contains(&x),
                 "piece off the board at tick {i}"

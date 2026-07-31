@@ -10,8 +10,15 @@ use std::fmt::Write;
 /// Render the board, the active piece, its landing position, and the run's counters.
 pub fn render(engine: &Engine) -> String {
     let board = engine.board();
-    let active: Vec<(i32, i32)> = engine.active().cells().to_vec();
-    let ghost: Vec<(i32, i32)> = engine.ghost().cells().to_vec();
+    // There is no piece during a spawn or clear delay, or once the game is over.
+    let active: Vec<(i32, i32)> = engine
+        .active()
+        .map(|p| p.cells().to_vec())
+        .unwrap_or_default();
+    let ghost: Vec<(i32, i32)> = engine
+        .ghost()
+        .map(|p| p.cells().to_vec())
+        .unwrap_or_default();
 
     // Show the visible field, plus any buffer rows that are actually in use, so a stack
     // pushing into the buffer is visible rather than silently cut off.
@@ -21,12 +28,14 @@ pub fn render(engine: &Engine) -> String {
 
     let stats = engine.stats();
     let mut out = String::new();
+    let piece = match engine.active() {
+        Some(p) => format!("{}{:?}", p.kind.label(), p.rot),
+        None => "-".to_string(),
+    };
     let _ = writeln!(
         out,
-        "tick {}  piece {}{:?}  phase {:?}",
+        "tick {}  piece {piece}  phase {:?}",
         stats.tick,
-        engine.active().kind.label(),
-        engine.active().rot,
         engine.phase()
     );
 

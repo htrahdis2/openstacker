@@ -115,7 +115,7 @@ const AUDIO: &str = "cosmetic.audio";
 /// anything about input hardware.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct Keybinds {
     pub move_left: Name,
     pub move_right: Name,
@@ -197,7 +197,7 @@ const SKIN_VARIANTS: &[EnumVariant] = &[
 /// Presentation only. Never leaves the render layer, never sent to a peer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct Cosmetic {
     pub skin: Name,
     /// Ghost piece opacity, as a percentage. `0` hides it.

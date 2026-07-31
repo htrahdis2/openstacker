@@ -354,3 +354,35 @@ lock_reset_mode = "infinite"
     assert_eq!(m.config.spin_detection, SpinRule::AllSpin);
     assert_eq!(m.config.lock_reset_mode, LockResetMode::Infinite);
 }
+
+#[test]
+fn mode_files_stay_strict_even_though_the_config_struct_is_permissive() {
+    // MatchConfig ignores unknown keys, because the same struct travels inside replays
+    // and settings files where tolerating an unfamiliar key is what keeps an older build
+    // usable. Mode files must not inherit that leniency: they are authored by hand, so a
+    // typo is a mistake worth reporting rather than a key to skip.
+    //
+    // The strictness lives in the loader, which validates against the descriptor tables
+    // before deserializing. If that check is ever removed, this catches it.
+    let err = parse(
+        r#"
+spec_version = 1
+id = "test"
+name = "Test"
+[goal]
+type = "survival"
+[config]
+lock_delay_tiks = 30
+"#,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("lock_delay_tiks"), "{err}");
+    assert!(err.to_string().contains("did you mean"), "{err}");
+
+    // Serde alone would have accepted it, which is precisely why the loader checks.
+    let permissive: Result<engine::MatchConfig, _> = toml::from_str("lock_delay_tiks = 30\n");
+    assert!(
+        permissive.is_ok(),
+        "the struct is meant to be permissive; strictness belongs to the loader"
+    );
+}

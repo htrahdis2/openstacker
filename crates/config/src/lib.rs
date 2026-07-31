@@ -8,8 +8,10 @@ pub mod error;
 pub mod mode;
 pub mod resolve;
 pub mod schema;
+pub mod settings;
 
 pub use error::{ConfigError, SUPPORTED_SPEC_VERSION};
 pub use mode::{Goal, ModeSpec, load_mode_file, load_modes, parse_mode};
 pub use resolve::{HostPolicy, Layer, Resolved, resolve};
 pub use schema::{schema, schema_json};
+pub use settings::{Note, SETTINGS_VERSION, Settings};

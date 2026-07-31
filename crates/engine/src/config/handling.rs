@@ -40,7 +40,10 @@ impl IrsMode {
 /// Player-chosen input timings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
+// Unknown keys are ignored rather than rejected. This is read back from a settings
+// file written by some other build, and refusing the whole file over one stale key
+// would wipe every setting a player has, not just the obsolete one.
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct Handling {
     /// Delay before a held direction starts auto-repeating.
     pub das_ms: u16,

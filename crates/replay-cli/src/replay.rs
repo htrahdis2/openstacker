@@ -16,7 +16,7 @@ pub const REPLAY_VERSION: u16 = 1;
 /// Checked rather than trusted. A replay that does not reproduce its own claimed result
 /// is either from a different build or was edited.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
+#[serde(default)]
 pub struct Outcome {
     pub final_tick: u32,
     pub lines: u32,
@@ -27,8 +27,10 @@ pub struct Outcome {
 }
 
 /// A recorded game.
+// Unknown keys are ignored so an older build can still read a newer recording, but the
+// fields that define a replay are required: a file without a seed or inputs is not a
+// replay with defaults, it is not a replay.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct Replay {
     pub version: u16,
     /// The rules version this was recorded under. A mismatch does not stop playback, but

@@ -129,7 +129,7 @@ impl SpinRule {
 /// Rows sent for each kind of clear.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct AttackTable {
     pub single: u8,
     pub double: u8,
@@ -259,7 +259,11 @@ const SPIN_VARIANTS: &[EnumVariant] = &[
 /// The rules of a match.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
+// Unknown keys are ignored here too. Mode files get their typo checking from the
+// loader, which validates against the descriptor tables and can say which setting was
+// meant; this copy also travels inside replays, where tolerating an unfamiliar key lets
+// an older build still watch a newer recording.
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct MatchConfig {
     pub gravity: GravityCurve,
     pub lock_delay_ms: u16,

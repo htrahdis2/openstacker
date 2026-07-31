@@ -1,0 +1,9 @@
+# Stands the opening I on end and drops it down the left wall.
+seed: 4
+mode: sprint40
+
+CW
+.
+LEFT*12
+HARD_DROP
+.*4

@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "engine_ver": 1,
+  "seed": 24301,
+  "config": {
+    "gravity": {
+      "type": "fixed",
+      "ms_per_row": 1000
+    },
+    "lock_delay_ms": 500,
+    "lock_reset_mode": "extended",
+    "lock_reset_cap": 15,
+    "clear_delay_ms": 0,
+    "spawn_delay_ms": 0,
+    "preview_len": 5,
+    "hold_enabled": true,
+    "spin_detection": "three_corner",
+    "attack_table": {
+      "single": 0,
+      "double": 1,
+      "triple": 2,
+      "quad": 4,
+      "mini_spin_single": 0,
+      "mini_spin_double": 1,
+      "spin_single": 2,
+      "spin_double": 4,
+      "spin_triple": 6,
+      "perfect_clear": 10
+    },
+    "combo_table": [
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      2,
+      3,
+      3,
+      4,
+      4,
+      4,
+      5
+    ],
+    "b2b_bonus": 1,
+    "garbage_delay_ms": 1000,
+    "garbage_cap": 8,
+    "garbage_hole_repeat": true
+  },
+  "handling": {
+    "das_ms": 133,
+    "arr_ms": 0,
+    "sdf_ms_per_row": 0,
+    "dcd_ms": 0,
+    "das_cut_delay_ms": 0,
+    "irs": "hold",
+    "ihs": true,
+    "prevent_misdrop_ms": 0,
+    "soft_drop_lock": false
+  },
+  "inputs": [
+    [
+      4,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      4,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      8,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      16,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      1,
+      12
+    ],
+    [
+      4,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      16,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      128,
+      1
+    ],
+    [
+      0,
+      1
+    ]
+  ],
+  "claimed": {
+    "final_tick": 26,
+    "lines": 0,
+    "pieces": 2,
+    "attack": 0,
+    "checksum": 9895652588917080975,
+    "topped_out": false
+  }
+}

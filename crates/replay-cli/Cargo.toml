@@ -1,0 +1,21 @@
+[package]
+name = "replay-cli"
+description = "Runs, verifies and renders recorded games."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+
+[[bin]]
+name = "replay"
+path = "src/main.rs"
+
+[dependencies]
+engine = { path = "../engine" }
+config = { path = "../config" }
+serde = { workspace = true, features = ["std"] }
+serde_json = "1"
+thiserror = "2"
+
+[dev-dependencies]
+serde_json = "1"

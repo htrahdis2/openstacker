@@ -1,0 +1,12 @@
+# Long holds in both directions, and a reversal, to exercise the repeat machinery.
+seed: 7
+mode: sprint40
+
+LEFT*40
+.
+RIGHT*40
+LEFT*20
+.
+SOFT_DROP*30
+HARD_DROP
+.

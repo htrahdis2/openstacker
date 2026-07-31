@@ -1,0 +1,20 @@
+# Drops pieces across the width of the board. Exercises the randomizer, spawning,
+# horizontal movement and stacking over a long run.
+seed: 0x1234
+mode: sprint40
+
+LEFT*3
+HARD_DROP
+.
+RIGHT
+HARD_DROP
+.
+RIGHT*2
+HARD_DROP
+.
+RIGHT*3
+HARD_DROP
+.
+LEFT*8
+HARD_DROP
+.

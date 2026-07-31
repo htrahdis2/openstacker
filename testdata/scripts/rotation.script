@@ -1,0 +1,19 @@
+# Every rotation button, including the half turn, against a wall and in open space.
+seed: 0x5EED
+mode: sprint40
+
+CW
+.
+CW
+.
+CCW
+.
+FLIP
+.
+LEFT*12
+CW
+.
+FLIP
+.
+HARD_DROP
+.

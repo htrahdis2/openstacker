@@ -1,0 +1,14 @@
+# Holds a piece, brings it back, and confirms hold cannot be spent twice per piece.
+seed: 0x1234
+mode: sprint40
+
+HOLD
+.
+HOLD
+.
+HARD_DROP
+.
+HOLD
+.
+HARD_DROP
+.

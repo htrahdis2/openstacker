@@ -43,6 +43,12 @@ jobs:
           cargo build -p engine --target wasm32-unknown-unknown
           cargo build -p engine --target wasm32-unknown-unknown --no-default-features
 
+      # The check the whole networked design rests on. A client runs the simulation in a
+      # browser and a server runs it natively, so a difference between the two is two
+      # peers disagreeing about a game in progress.
+      - name: Native and wasm produce identical results
+        run: ./scripts/wasm-parity.sh
+
       - name: Engine purity guard
         run: ./scripts/engine-purity.sh
 

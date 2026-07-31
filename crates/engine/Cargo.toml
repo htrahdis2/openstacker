@@ -8,8 +8,11 @@ license = "MIT OR Apache-2.0"
 
 [features]
 default = ["std", "serde"]
-std = []
-serde = ["dep:serde", "arrayvec/serde", "bitflags/serde"]
+std = ["serde?/std"]
+# Serialization needs alloc: config uses internally tagged enums so that mode files can
+# say `type = "fixed"`, and serde buffers those during deserialization. The engine core
+# stays no_std and allocation-free; only the serde layer adds that requirement.
+serde = ["dep:serde", "serde/alloc", "arrayvec/serde", "bitflags/serde"]
 
 [dependencies]
 arrayvec.workspace = true

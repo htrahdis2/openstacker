@@ -20,9 +20,13 @@
 
 pub mod desc;
 pub mod handling;
+pub mod match_config;
 
 pub use desc::{EnumVariant, FieldDesc, FieldKind, Tunable, Unit, field, nearest_key};
 pub use handling::{Handling, HandlingSub, IrsMode};
+pub use match_config::{
+    AttackTable, GravityCurve, GravityStage, LockResetMode, MatchConfig, SpinRule,
+};
 
 /// Assert that a config struct's descriptor table and its serde fields describe exactly
 /// the same set of settings.

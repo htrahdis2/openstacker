@@ -13,6 +13,25 @@
 
 use super::desc::{EnumVariant, FieldDesc, FieldKind, Tunable, Unit, field};
 use crate::input::Buttons;
+use arrayvec::ArrayString;
+
+/// A platform key name such as `ArrowLeft` or `ShiftLeft`, or a skin identifier.
+///
+/// Fixed capacity rather than `String`, so client settings stay deserializable without
+/// requiring an allocator, and rather than `&'static str`, which cannot be deserialized
+/// from owned input at all.
+pub type Name = ArrayString<NAME_CAP>;
+
+/// Capacity of a [`Name`]. Comfortably above the longest platform key name.
+pub const NAME_CAP: usize = 24;
+
+/// Build a [`Name`] from a literal.
+///
+/// # Panics
+/// If the literal exceeds [`NAME_CAP`]. Only called with compile-time constants.
+fn name(s: &str) -> Name {
+    Name::from(s).expect("name exceeds NAME_CAP")
+}
 
 /// An action a key can be bound to.
 ///
@@ -98,27 +117,27 @@ const AUDIO: &str = "cosmetic.audio";
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
 pub struct Keybinds {
-    pub move_left: &'static str,
-    pub move_right: &'static str,
-    pub rotate_cw: &'static str,
-    pub rotate_ccw: &'static str,
-    pub rotate_flip: &'static str,
-    pub hold: &'static str,
-    pub soft_drop: &'static str,
-    pub hard_drop: &'static str,
+    pub move_left: Name,
+    pub move_right: Name,
+    pub rotate_cw: Name,
+    pub rotate_ccw: Name,
+    pub rotate_flip: Name,
+    pub hold: Name,
+    pub soft_drop: Name,
+    pub hard_drop: Name,
 }
 
 impl Default for Keybinds {
     fn default() -> Self {
         Keybinds {
-            move_left: "ArrowLeft",
-            move_right: "ArrowRight",
-            rotate_cw: "ArrowUp",
-            rotate_ccw: "KeyZ",
-            rotate_flip: "KeyA",
-            hold: "ShiftLeft",
-            soft_drop: "ArrowDown",
-            hard_drop: "Space",
+            move_left: name("ArrowLeft"),
+            move_right: name("ArrowRight"),
+            rotate_cw: name("ArrowUp"),
+            rotate_ccw: name("KeyZ"),
+            rotate_flip: name("KeyA"),
+            hold: name("ShiftLeft"),
+            soft_drop: name("ArrowDown"),
+            hard_drop: name("Space"),
         }
     }
 }
@@ -180,7 +199,7 @@ const SKIN_VARIANTS: &[EnumVariant] = &[
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
 pub struct Cosmetic {
-    pub skin: &'static str,
+    pub skin: Name,
     /// Ghost piece opacity, as a percentage. `0` hides it.
     pub ghost_opacity: u8,
     /// Board scale, as a percentage of the default size.
@@ -193,7 +212,7 @@ pub struct Cosmetic {
 impl Default for Cosmetic {
     fn default() -> Self {
         Cosmetic {
-            skin: "default",
+            skin: name("default"),
             ghost_opacity: 35,
             board_scale: 100,
             show_grid: true,
@@ -321,6 +340,31 @@ mod tests {
         crate::config::assert_descriptors_match_serde_fields(&Cosmetic::default());
     }
 
+    #[cfg(all(feature = "serde", feature = "std"))]
+    #[test]
+    fn client_settings_round_trip_through_owned_text() {
+        // These are read back from a settings file or browser storage, which is owned
+        // data. Borrowed string fields would compile but be impossible to deserialize
+        // from anything but a static literal, so the round trip has to go through an
+        // owned String to be a real test.
+        let json = serde_json::to_string(&Keybinds::default()).unwrap();
+        let back: Keybinds = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, Keybinds::default());
+
+        let json = serde_json::to_string(&Cosmetic::default()).unwrap();
+        let back: Cosmetic = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, Cosmetic::default());
+    }
+
+    #[cfg(all(feature = "serde", feature = "std"))]
+    #[test]
+    fn an_overlong_key_name_is_rejected_rather_than_truncated() {
+        // Silently truncating would bind the action to a key that does not exist.
+        let long = "X".repeat(NAME_CAP + 1);
+        let json = format!(r#"{{"move_left":"{long}"}}"#);
+        assert!(serde_json::from_str::<Keybinds>(&json).is_err());
+    }
+
     #[test]
     fn cosmetic_defaults_are_inside_their_declared_ranges() {
         for f in Cosmetic::FIELDS {
@@ -369,7 +413,7 @@ mod tests {
         // Key names come from the platform. Rejecting an unfamiliar one would break on
         // the next browser that spells a key differently.
         let mut k = Keybinds {
-            move_left: "SomeKeyThisBuildHasNeverHeardOf",
+            move_left: name("SomeKeyUnknownHere"),
             ..Default::default()
         };
         let before = k.clone();

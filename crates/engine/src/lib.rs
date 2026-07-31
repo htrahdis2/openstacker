@@ -37,6 +37,7 @@ pub mod consts;
 pub mod events;
 pub mod fixed;
 pub mod input;
+pub mod quad;
 
 pub use consts::{
     BOARD_H, BOARD_W, ENGINE_VER, FULL_ROW, MAX_PREVIEW, SUBTICK, TICK_HZ, VISIBLE_H,
@@ -44,3 +45,4 @@ pub use consts::{
 pub use events::{Events, Stats, TickResult};
 pub use fixed::{ms_to_subticks, subticks_to_centiframes, subticks_to_ms};
 pub use input::{Buttons, Dir};
+pub use quad::{QuadKind, Rot};

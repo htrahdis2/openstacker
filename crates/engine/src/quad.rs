@@ -1,7 +1,7 @@
 //! Piece kinds and rotation states.
 //!
-//! The seven kinds are named for the letters their shapes resemble — a description of
-//! geometry, and nothing to do with how any of them are presented on screen.
+//! The seven kinds are named for the letters their shapes resemble. That is a
+//! description of geometry and says nothing about how they are presented on screen.
 
 /// One of the seven quad shapes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -1,9 +1,9 @@
 //! Per-tick output.
 //!
-//! Callers react to `Events`, never to introspecting engine state. That rule is what
-//! keeps audio, network and UI layers decoupled from the simulation, and it is why the
-//! full bitset is defined and populated up front — including flags that nothing consumes
-//! yet. A renderer written against it does not need reworking when new rules land.
+//! Callers react to `Events`, never to introspecting engine state. That rule keeps
+//! audio, network and UI layers decoupled from the simulation, and it is why the full
+//! bitset is defined and populated up front, including flags that nothing consumes yet.
+//! A renderer written against it does not need reworking when new rules land.
 
 use bitflags::bitflags;
 

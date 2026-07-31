@@ -1,12 +1,12 @@
 //! Player input.
 //!
-//! Input is **buttons held this tick**, never actions. The caller physically cannot
-//! express "I moved left 10 times this frame" — movement is not in this type. Turning
-//! "LEFT was held for these 30 consecutive ticks" into a sequence of column movements
-//! is the engine's job, because DAS/ARR/SDF live inside the engine.
+//! Input is **buttons held this tick**, never actions. A caller cannot express "I moved
+//! left 10 times this frame" because movement is not in this type. Turning "LEFT was
+//! held for these 30 consecutive ticks" into column movements is the engine's job, since
+//! DAS, ARR and SDF all live inside the engine.
 //!
 //! That is more than an ergonomic choice. Because movement is not expressible, a remote
-//! client cannot claim impossible movement; the worst it can do is emit button patterns
+//! client cannot claim impossible movement. The worst it can do is emit button patterns
 //! a human could not produce, which is a statistics problem rather than a correctness
 //! one.
 
@@ -15,11 +15,11 @@ use bitflags::bitflags;
 bitflags! {
     /// Buttons held during a single tick.
     ///
-    /// `LEFT`/`RIGHT`/`SOFT_DROP` are level-triggered — the engine acts on them for as
-    /// long as they are held. `CW`/`CCW`/`FLIP`/`HOLD`/`HARD_DROP` are edge-triggered:
-    /// they fire on the tick they are first seen and not again until released. The
-    /// engine tracks the previous tick's buttons internally, so this distinction is
-    /// invisible to the caller.
+    /// `LEFT`, `RIGHT` and `SOFT_DROP` are level-triggered: the engine acts on them for
+    /// as long as they are held. `CW`, `CCW`, `FLIP`, `HOLD` and `HARD_DROP` are
+    /// edge-triggered, firing on the tick they are first seen and not again until
+    /// released. The engine tracks the previous tick's buttons internally, so this
+    /// distinction is invisible to the caller.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
     pub struct Buttons: u8 {
         const LEFT      = 1 << 0;

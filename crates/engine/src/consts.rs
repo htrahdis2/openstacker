@@ -1,8 +1,8 @@
 //! Compile-time constants.
 //!
-//! `BOARD_W`, `BOARD_H` and `TICK_HZ` are deliberately **not** tunable: board width is
-//! baked into the `u16` row bitmasks, and every collision, clear and checksum routine
-//! derives from it. Making it dynamic would infect the whole engine for no benefit.
+//! `BOARD_W`, `BOARD_H` and `TICK_HZ` are deliberately not tunable. Board width is baked
+//! into the `u16` row bitmasks that every collision, clear and checksum routine derives
+//! from, so making it dynamic would infect the whole engine for no real benefit.
 
 /// Playfield width in columns. Also the bit-width of a row mask.
 pub const BOARD_W: usize = 10;

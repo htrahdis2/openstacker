@@ -1,17 +1,17 @@
 //! Fixed-point time.
 //!
-//! Every duration in the engine — DAS, ARR, soft drop, gravity, lock delay, clear and
-//! spawn delays — is stored as a **subtick** count, where `1 tick = SUBTICK subticks`.
-//! Config expresses those durations in milliseconds; conversion happens exactly once,
-//! at construction, in integer arithmetic only.
+//! Every duration in the engine is stored as a **subtick** count, where
+//! `1 tick = SUBTICK subticks`. That covers DAS, ARR, soft drop, gravity, lock delay,
+//! and the clear and spawn delays. Config expresses durations in milliseconds and
+//! conversion happens exactly once, at construction, in integer arithmetic only.
 //!
-//! Subticks exist so that handling can be tuned below whole-frame granularity, which
-//! competitive players expect and which floats cannot provide without giving up
-//! cross-platform determinism.
+//! Subticks exist so handling can be tuned below whole-frame granularity, which
+//! competitive players expect. Floats would give the same precision at the cost of
+//! cross-platform determinism, which is not a trade this engine can make.
 //!
 //! # One scale for both time and gravity
 //!
-//! Gravity does not get its own sub-*cell* accumulator. "One row per `ms_per_row`
+//! Gravity does not get its own sub-cell accumulator. "One row per `ms_per_row`
 //! milliseconds" is a duration like any other, so gravity is a subtick threshold and the
 //! piece descends whenever the accumulator crosses it. One conversion function, one
 //! scale, one class of rounding error.
@@ -35,10 +35,10 @@ const SUBTICKS_PER_MS_DEN: u64 = RAW_DEN / gcd(RAW_NUM, RAW_DEN);
 
 /// Convert a millisecond duration to subticks, truncating.
 ///
-/// Resolution is one subtick ≈ 0.0651 ms ≈ 0.0039 frames. Because milliseconds are the
-/// stored unit, frame-denominated values quantise to roughly ±0.03 F. A settings UI must
-/// therefore treat ms as canonical and show frames as a derived read-out — never let a
-/// user type a frame value and expect it back unchanged.
+/// Resolution is one subtick, about 0.0651 ms or 0.0039 frames. Because milliseconds
+/// are the stored unit, frame-denominated values quantise to roughly 0.03 F. A settings
+/// UI must therefore treat ms as canonical and show frames as a derived read-out. Never
+/// let a user type a frame value and expect it back unchanged.
 pub const fn ms_to_subticks(ms: u32) -> u32 {
     let sub = (ms as u64 * SUBTICKS_PER_MS_NUM) / SUBTICKS_PER_MS_DEN;
     if sub > u32::MAX as u64 {
@@ -50,10 +50,10 @@ pub const fn ms_to_subticks(ms: u32) -> u32 {
 
 /// Convert a millisecond duration to subticks, clamped to at least 1.
 ///
-/// Used for values that act as a **divisor or threshold** — gravity and soft drop —
-/// where a zero threshold would spin forever. Callers must special-case `ms == 0` as
-/// "instant" *before* calling this; the clamp is a guard against a config that rounds
-/// down to zero, not a substitute for that check.
+/// Used for values that act as a threshold, meaning gravity and soft drop, where zero
+/// would spin forever. Callers must special-case `ms == 0` as "instant" before calling
+/// this. The clamp guards against a config that rounds down to zero; it is not a
+/// substitute for that check.
 pub const fn ms_to_subticks_nonzero(ms: u32) -> u32 {
     let sub = ms_to_subticks(ms);
     if sub == 0 { 1 } else { sub }
@@ -61,9 +61,9 @@ pub const fn ms_to_subticks_nonzero(ms: u32) -> u32 {
 
 /// Convert subticks back to milliseconds, rounding to nearest. **Display only.**
 ///
-/// Rounds rather than truncates so that a value which came from [`ms_to_subticks`]
-/// round-trips exactly — a settings slider that shows `132` for a stored `133` reads as
-/// a bug even when the underlying subtick count is right.
+/// Rounds rather than truncates so a value from [`ms_to_subticks`] round-trips exactly.
+/// A settings slider that shows `132` for a stored `133` reads as a bug even when the
+/// underlying subtick count is correct.
 pub const fn subticks_to_ms(sub: u32) -> u32 {
     let n = sub as u64 * SUBTICKS_PER_MS_DEN;
     ((n + SUBTICKS_PER_MS_NUM / 2) / SUBTICKS_PER_MS_NUM) as u32
@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn sub_frame_precision_is_available() {
-        // The whole point of subticks: 8.5 frames must be distinguishable from 8 and 9.
+        // 8.5 frames must be distinguishable from 8 and 9. That is what subticks buy.
         let eight = ms_to_subticks(133); // ~7.98 F
         let eight_half = ms_to_subticks(142); // ~8.52 F
         let nine = ms_to_subticks(150); // ~9.00 F
@@ -107,15 +107,14 @@ mod tests {
     #[test]
     fn frame_readout_matches_the_documented_quantisation() {
         // A user asking for "8.5 frames" stores 142 ms and reads back 8.52 F. Pinned
-        // because the ms-is-canonical UI contract depends on this exact behaviour.
+        // because the ms-is-canonical UI contract depends on this exact behavior.
         assert_eq!(subticks_to_centiframes(ms_to_subticks(142)), 852);
     }
 
     #[test]
     fn round_trip_is_exact_for_every_representable_millisecond() {
         // Rounding on the way back makes ms -> subticks -> ms the identity across the
-        // whole config range. If this ever regresses, settings sliders start drifting
-        // by 1 ms every time they are saved and reloaded.
+        // whole config range. Without it, settings drift by 1 ms per save/reload cycle.
         for ms in 0..=u16::MAX as u32 {
             let back = subticks_to_ms(ms_to_subticks(ms));
             assert_eq!(back, ms, "{ms} ms did not round-trip");

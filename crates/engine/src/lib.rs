@@ -1,33 +1,35 @@
 //! Deterministic falling-block simulation.
 //!
-//! This crate is the whole of the game's rules and none of its I/O. It has no
-//! filesystem access, no clock, no async, and no floating point. Those are hard
-//! constraints, enforced in CI by a grep guard, because they are what make the
-//! simulation reproducible bit-for-bit across native and wasm builds.
+//! This crate holds all of the game's rules and none of its I/O. No filesystem, no
+//! clock, no async, no floating point. Those constraints are what make the simulation
+//! reproducible bit-for-bit across native and wasm builds, and CI enforces them.
 //!
 //! # Determinism contract
 //!
-//! Given the same `(seed, MatchConfig, Handling)` and the same sequence of [`Buttons`],
-//! this crate produces the same sequence of [`TickResult`]s and the same
-//! [`checksum`](Engine::checksum) on every platform and every build. That property is
-//! what buys free replays, free server verification, and free desync detection.
+//! Given the same seed, config, and sequence of [`Buttons`], this crate produces the
+//! same sequence of [`TickResult`]s and the same state checksum on every platform and
+//! every build. Replays, server-side verification, and desync detection all fall out of
+//! that single property.
 //!
-//! Things that would break it, and are therefore banned here:
+//! Banned here because they would break it:
 //!
-//! - floating point (`f32`/`f64`) — rounding is not guaranteed identical across targets
-//! - `HashMap` — iteration order is not build-stable
-//! - `std::time` — the simulation's only clock is its own tick counter
-//! - per-tick allocation — bounded collections only
+//! - `f32`/`f64`: rounding is not guaranteed identical across targets.
+//! - `HashMap`: iteration order is not build-stable.
+//! - `std::time`: the only clock is the tick counter.
+//! - Per-tick allocation: bounded collections only.
+//! - `usize` in any value that reaches the checksum or the wire. It is 64-bit on native
+//!   and 32-bit on wasm32, so it must never decide a byte width or a serialized field.
+//!   Using it for local indices is fine.
 //!
 //! # Layering
 //!
 //! ```text
-//! engine  ←  config  ←  replay-cli
+//! engine  <-  config  <-  replay-cli
 //! ```
 //!
-//! `engine` depends on no other workspace crate. Config *types* and their descriptors
-//! live here; reading TOML and emitting JSON is `config`'s job, so that this crate can
-//! keep the no-I/O invariant.
+//! `engine` depends on no other workspace crate. Config types and their descriptors live
+//! here; reading TOML and emitting JSON belongs to `config`, which is what keeps this
+//! crate free of I/O.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]

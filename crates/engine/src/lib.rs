@@ -39,6 +39,7 @@ pub mod bag;
 pub mod board;
 pub mod config;
 pub mod consts;
+pub mod engine;
 pub mod events;
 pub mod fixed;
 pub mod garbage;
@@ -58,6 +59,7 @@ pub use config::{
 pub use consts::{
     BOARD_H, BOARD_W, ENGINE_VER, FULL_ROW, MAX_PREVIEW, SUBTICK, TICK_HZ, VISIBLE_H,
 };
+pub use engine::{Engine, Phase};
 pub use events::{Events, Stats, TickResult};
 pub use fixed::{ms_to_subticks, subticks_to_centiframes, subticks_to_ms};
 pub use garbage::{GarbageQueue, PendingGarbage};

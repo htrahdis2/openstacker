@@ -18,10 +18,12 @@
 //!
 //! [`Buttons`]: crate::Buttons
 
+pub mod client;
 pub mod desc;
 pub mod handling;
 pub mod match_config;
 
+pub use client::{Action, Cosmetic, Keybinds};
 pub use desc::{EnumVariant, FieldDesc, FieldKind, Tunable, Unit, field, nearest_key};
 pub use handling::{Handling, HandlingSub, IrsMode};
 pub use match_config::{

@@ -45,8 +45,8 @@ pub mod quad;
 
 pub use board::Board;
 pub use config::{
-    AttackTable, FieldDesc, FieldKind, GravityCurve, Handling, HandlingSub, IrsMode, LockResetMode,
-    MatchConfig, SpinRule, Tunable, Unit,
+    Action, AttackTable, Cosmetic, FieldDesc, FieldKind, GravityCurve, Handling, HandlingSub,
+    IrsMode, Keybinds, LockResetMode, MatchConfig, SpinRule, Tunable, Unit,
 };
 pub use consts::{
     BOARD_H, BOARD_W, ENGINE_VER, FULL_ROW, MAX_PREVIEW, SUBTICK, TICK_HZ, VISIBLE_H,

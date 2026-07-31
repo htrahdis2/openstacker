@@ -35,6 +35,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::float_arithmetic)]
 
+pub mod bag;
 pub mod board;
 pub mod config;
 pub mod consts;
@@ -42,7 +43,9 @@ pub mod events;
 pub mod fixed;
 pub mod input;
 pub mod quad;
+pub mod rng;
 
+pub use bag::Bag;
 pub use board::Board;
 pub use config::{
     Action, AttackTable, Cosmetic, FieldDesc, FieldKind, GravityCurve, Handling, HandlingSub,
@@ -55,3 +58,4 @@ pub use events::{Events, Stats, TickResult};
 pub use fixed::{ms_to_subticks, subticks_to_centiframes, subticks_to_ms};
 pub use input::{Buttons, Dir};
 pub use quad::{QuadKind, Rot};
+pub use rng::SplitMix64;

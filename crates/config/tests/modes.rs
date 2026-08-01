@@ -4,6 +4,8 @@
 //! written by people who do not write Rust, so a bad message is a real defect: it is the
 //! difference between fixing a typo in ten seconds and giving up on contributing a mode.
 
+#![cfg(feature = "files")]
+
 use config::{ConfigError, Goal, load_modes, parse_mode};
 use engine::{GravityCurve, LockResetMode, SpinRule};
 use std::path::{Path, PathBuf};

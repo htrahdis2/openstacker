@@ -38,6 +38,11 @@ jobs:
       - name: Build engine without default features
         run: cargo build -p engine --no-default-features
 
+      # The client shares this crate's settings validation. Without file loading it must
+      # not pull a TOML parser into the browser bundle.
+      - name: Build config without file loading
+        run: cargo build -p config --no-default-features
+
       - name: Build engine for wasm32
         run: |
           cargo build -p engine --target wasm32-unknown-unknown

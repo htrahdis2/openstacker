@@ -6,12 +6,18 @@ edition.workspace = true
 rust-version.workspace = true
 license = "MIT"
 
+[features]
+default = ["files"]
+# Reading mode files from disk. Off leaves settings, resolution and schema emission,
+# which is all a browser build needs and none of which touches the filesystem.
+files = ["dep:toml", "dep:thiserror"]
+
 [dependencies]
 engine = { path = "../engine" }
 serde = { workspace = true, features = ["std"] }
 serde_json = "1"
-toml = "0.9"
-thiserror = "2"
+toml = { version = "0.9", optional = true }
+thiserror = { version = "2", optional = true }
 
 [dev-dependencies]
 toml = "0.9"

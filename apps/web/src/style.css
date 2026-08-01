@@ -73,6 +73,7 @@ canvas {
   border-radius: 2px;
 }
 
+/* Only shown while a game is running; in a menu it is a line with nothing to say. */
 .garbage {
   width: 8px;
   background: var(--panel);
@@ -82,6 +83,11 @@ canvas {
   flex-direction: column;
   justify-content: flex-end;
   overflow: hidden;
+  visibility: hidden;
+}
+
+.garbage.active {
+  visibility: visible;
 }
 
 .garbage-fill {

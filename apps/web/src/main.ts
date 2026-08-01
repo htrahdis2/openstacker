@@ -36,6 +36,7 @@ const canvas = el<HTMLCanvasElement>("board");
 const holdCanvas = el<HTMLCanvasElement>("hold");
 const nextCanvas = el<HTMLCanvasElement>("next");
 const garbage = el("garbage");
+const garbageTrack = el("garbage-track");
 const status = el("status");
 const statTime = el("stat-time");
 const statLines = el("stat-lines");
@@ -83,6 +84,7 @@ function start(mode: Mode): void {
   input.clear();
   phase = "running";
   status.textContent = "";
+  garbageTrack.classList.add("active");
   showOverlay(false);
   draw();
 }
@@ -175,6 +177,7 @@ function showMenu(): void {
   views = null;
   overlayTitle.textContent = "openstacker";
   overlayNote.textContent = "pick a mode";
+  garbageTrack.classList.remove("active");
   resultList.hidden = true;
   modeList.hidden = false;
   againButton.hidden = true;

@@ -54,6 +54,13 @@ jobs:
       - name: Native and wasm produce identical results
         run: ./scripts/wasm-parity.sh
 
+      # The engine matching across targets is not the same claim as the client matching.
+      # This one covers the artifact a player loads: bindings, frame block and all.
+      - name: The built client reproduces recorded games
+        run: |
+          cargo install wasm-pack --locked --version 0.15.0
+          ./scripts/client-parity.sh
+
       - name: Engine purity guard
         run: ./scripts/engine-purity.sh
 

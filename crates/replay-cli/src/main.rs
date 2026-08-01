@@ -1,7 +1,6 @@
 //! Runs, verifies and renders recorded games.
 
 mod render;
-mod replay;
 mod script;
 
 use engine::{ENGINE_VER, Engine, Handling, MatchConfig};

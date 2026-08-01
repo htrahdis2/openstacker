@@ -7,7 +7,7 @@
 
 import { Clock } from "./clock";
 import { Input, attach, keymap } from "./input";
-import { MODES, type Mode, goalReached, isPlayable, remaining } from "./modes";
+import { MODES, type Mode, goalReached, isPlayable, mode, remaining } from "./modes";
 import { drawBoard, geometry } from "./render/board";
 import { drawHold, drawNext, formatPps, formatTime, garbageFill, sizeBoxes } from "./render/hud";
 import { skin } from "./render/palette";
@@ -15,7 +15,9 @@ import type { Shapes } from "./render/piece";
 import {
   type StoredReplay,
   best,
+  decode,
   download,
+  listReplays,
   open as openReplays,
   recordBest,
   saveReplay,
@@ -64,6 +66,11 @@ const resultList = el<HTMLElement>("result");
 const againButton = el<HTMLButtonElement>("again");
 const backButton = el<HTMLButtonElement>("back");
 const saveReplayButton = el<HTMLButtonElement>("save-replay");
+const openReplaysButton = el<HTMLButtonElement>("open-replays");
+const closeReplaysButton = el<HTMLButtonElement>("close-replays");
+const replaysScreen = el("replays-screen");
+const replayList = el("replay-list");
+const replaysEmpty = el("replays-empty");
 const overlayBest = el("overlay-best");
 const openSettings = el<HTMLButtonElement>("open-settings");
 const closeSettings = el<HTMLButtonElement>("close-settings");
@@ -97,6 +104,20 @@ if (!ctx) throw new Error("this browser has no 2d canvas");
 /** What the client is doing. A game only advances while it is running. */
 type Phase = "menu" | "running" | "done";
 
+/**
+ * A recording being played back.
+ *
+ * Playback is the same loop with buttons read from the recording instead of the keyboard,
+ * so what a viewer sees is re-derived by running the simulation rather than stored.
+ */
+interface Playback {
+  buttons: number[];
+  at: number;
+  label: string;
+}
+
+let playback: Playback | null = null;
+
 let phase: Phase = "menu";
 let current: Mode | null = null;
 let game: Game | null = null;
@@ -109,6 +130,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function start(mode: Mode): void {
+  playback = null;
   current = mode;
   game = new Game(newSeed(), JSON.stringify(mode.config), JSON.stringify(settings.handling));
   views = new GameViews(game);
@@ -136,7 +158,8 @@ function finish(frame: Frame): void {
  * throw away.
  */
 async function keep(frame: Frame, met: boolean): Promise<void> {
-  if (!game || !current) return;
+  // A recording played back is not a new game and must not be stored as one.
+  if (!game || !current || playback) return;
   const stored: StoredReplay = {
     id: crypto.randomUUID(),
     mode: current.id,
@@ -174,6 +197,15 @@ async function keep(frame: Frame, met: boolean): Promise<void> {
 function step(ticks: number): void {
   if (phase === "running" && game) {
     for (let i = 0; i < ticks; i++) {
+      if (playback) {
+        if (playback.at >= playback.buttons.length) {
+          finish(read()!);
+          break;
+        }
+        game.tick(playback.buttons[playback.at++]!);
+        draw();
+        continue;
+      }
       // Sampled per tick, not per frame: a catch-up run must not replay one press.
       game.tick(input.consume());
       const frame = read();
@@ -293,13 +325,13 @@ function showResult(frame: Frame, met: boolean): void {
 
 function buildMenu(): void {
   modeList.innerHTML = "";
-  for (const mode of MODES) {
+  for (const entry of MODES) {
     const li = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
-    button.innerHTML = `<strong>${mode.name}</strong><span>${mode.description}</span>`;
-    if (isPlayable(mode.goal)) {
-      button.addEventListener("click", () => start(mode));
+    button.innerHTML = `<strong>${entry.name}</strong><span>${entry.description}</span>`;
+    if (isPlayable(entry.goal)) {
+      button.addEventListener("click", () => start(entry));
     } else {
       button.disabled = true;
       button.title = "needs versus rules";
@@ -308,6 +340,73 @@ function buildMenu(): void {
     modeList.append(li);
   }
 }
+
+// ---- replays ----------------------------------------------------------------
+
+/** Play a recording back through the same loop that played it live. */
+function watch(stored: StoredReplay): void {
+  const { seed, config, handling, buttons } = decode(stored.payload);
+  playback = { buttons, at: 0, label: stored.mode };
+  current = mode(stored.mode) ?? null;
+  game = new Game(seed, config, handling);
+  views = new GameViews(game);
+  clock.reset();
+  input.clear();
+  phase = "running";
+  status.textContent = `watching a ${stored.mode} replay`;
+  garbageTrack.classList.add("active");
+  replaysScreen.hidden = true;
+  showOverlay(false);
+  draw();
+}
+
+async function openReplaysScreen(): Promise<void> {
+  replayList.innerHTML = "";
+  let saved: StoredReplay[] = [];
+  try {
+    saved = await listReplays(await openReplays());
+  } catch {
+    status.textContent = "saved games could not be read";
+  }
+
+  replaysEmpty.hidden = saved.length > 0;
+  for (const stored of saved) {
+    const li = document.createElement("li");
+
+    const summary = document.createElement("div");
+    summary.className = "replay-summary";
+    summary.innerHTML =
+      `<strong>${stored.mode}</strong>` +
+      `<span>${formatTime(stored.ticks)} · ${stored.lines} lines · ${stored.pieces} pieces` +
+      `${stored.finished ? "" : " · topped out"}</span>`;
+
+    const play = document.createElement("button");
+    play.type = "button";
+    play.textContent = "watch";
+    play.addEventListener("click", () => watch(stored));
+
+    const file = document.createElement("button");
+    file.type = "button";
+    file.textContent = "save";
+    file.addEventListener("click", () => {
+      download(stored, (url, name) => {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = name;
+        link.click();
+      });
+    });
+
+    li.append(summary, play, file);
+    replayList.append(li);
+  }
+  replaysScreen.hidden = false;
+}
+
+openReplaysButton.addEventListener("click", () => void openReplaysScreen());
+closeReplaysButton.addEventListener("click", () => {
+  replaysScreen.hidden = true;
+});
 
 // ---- settings ---------------------------------------------------------------
 
@@ -384,6 +483,7 @@ if (import.meta.env.DEV) {
       start,
       showMenu,
       openSettingsScreen,
+      watch,
       settings: () => settings,
       frame: read,
       state: () => ({ phase, mode: current?.id ?? null }),

@@ -84,6 +84,40 @@ export async function recordBest(
   return true;
 }
 
+/**
+ * The parts of a recording needed to replay it.
+ *
+ * The seed is taken from the text rather than the parsed object: it is 64-bit, and
+ * JSON.parse rounds anything past 53 bits through a double, which would play a different
+ * game from the one that was recorded.
+ */
+export function decode(payload: string): {
+  seed: bigint;
+  config: string;
+  handling: string;
+  buttons: number[];
+} {
+  const parsed = JSON.parse(payload) as {
+    config: unknown;
+    handling: unknown;
+    inputs: [number, number][];
+  };
+  const seed = /"seed"\s*:\s*(\d+)/.exec(payload);
+  if (!seed) throw new Error("this recording has no seed");
+
+  const buttons: number[] = [];
+  for (const [bits, run] of parsed.inputs) {
+    for (let i = 0; i < run; i++) buttons.push(bits);
+  }
+
+  return {
+    seed: BigInt(seed[1]!),
+    config: JSON.stringify(parsed.config),
+    handling: JSON.stringify(parsed.handling),
+    buttons,
+  };
+}
+
 /** A recording as a file the tools accept. */
 export function download(replay: StoredReplay, click: (url: string, name: string) => void): void {
   const blob = new Blob([replay.payload], { type: "application/json" });

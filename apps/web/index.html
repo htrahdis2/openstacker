@@ -37,6 +37,7 @@
                 <button id="again" type="button" hidden>play again</button>
                 <button id="back" type="button" hidden>change mode</button>
                 <button id="save-replay" type="button" hidden>save replay</button>
+                <button id="open-replays" type="button">replays</button>
                 <button id="open-settings" type="button">settings</button>
               </div>
             </div>
@@ -55,6 +56,15 @@
         </section>
       </aside>
     </main>
+
+    <div id="replays-screen" class="screen" hidden>
+      <header class="screen-head">
+        <h1>replays</h1>
+        <button id="close-replays" type="button">done</button>
+      </header>
+      <p id="replays-empty" class="notes" hidden>No games recorded yet.</p>
+      <ul id="replay-list" class="replay-list"></ul>
+    </div>
 
     <div id="settings-screen" class="screen" hidden>
       <header class="screen-head">

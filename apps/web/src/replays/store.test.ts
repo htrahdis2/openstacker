@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   type StoredReplay,
   best,
+  decode,
   download,
   getReplay,
   listReplays,
@@ -119,5 +120,47 @@ describe("download", () => {
       url = u;
     });
     expect(url).toMatch(/^blob:/);
+  });
+});
+
+describe("decode", () => {
+  const payload = JSON.stringify({
+    version: 1,
+    engine_ver: 1,
+    seed: 236143731602737,
+    config: { preview_len: 5 },
+    handling: { das_ms: 133 },
+    inputs: [
+      [0, 3],
+      [128, 1],
+      [0, 2],
+    ],
+    claimed: { final_tick: 6 },
+  });
+
+  it("expands the run-length encoded buttons back to one per tick", () => {
+    const { buttons } = decode(payload);
+    expect(buttons).toEqual([0, 0, 0, 128, 0, 0]);
+  });
+
+  it("carries the rules and handling the game was played under", () => {
+    const { config, handling } = decode(payload);
+    expect(JSON.parse(config).preview_len).toBe(5);
+    expect(JSON.parse(handling).das_ms).toBe(133);
+  });
+
+  it("keeps a seed that a double could not hold", () => {
+    // JSON.parse rounds anything past 53 bits, and a rounded seed plays a different game
+    // from the one that was recorded.
+    const big = payload.replace("236143731602737", "9007199254740993");
+    const viaJson = BigInt(JSON.parse(big).seed as number);
+
+    expect(decode(big).seed).toBe(9007199254740993n);
+    expect(viaJson).toBe(9007199254740992n);
+    expect(viaJson).not.toBe(decode(big).seed);
+  });
+
+  it("refuses a recording with no seed rather than inventing one", () => {
+    expect(() => decode('{"inputs":[],"config":{},"handling":{}}')).toThrow();
   });
 });

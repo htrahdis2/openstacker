@@ -24,4 +24,4 @@ pub use settings::{Note, SETTINGS_VERSION, Settings};
 #[cfg(feature = "files")]
 pub use error::{ConfigError, SUPPORTED_SPEC_VERSION};
 #[cfg(feature = "files")]
-pub use mode::{Goal, ModeSpec, load_mode_file, load_modes, parse_mode};
+pub use mode::{Goal, ModeSpec, load_mode_file, load_modes, modes_json, parse_mode};

@@ -388,3 +388,37 @@ lock_delay_tiks = 30
         "the struct is meant to be permissive; strictness belongs to the loader"
     );
 }
+
+#[test]
+fn the_generated_json_carries_every_shipped_mode() {
+    // The client bundles this instead of parsing TOML, so a mode missing here is a mode
+    // nobody can play.
+    let text = config::modes_json(Path::new("../../modes")).expect("shipped modes should load");
+    let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let modes = v["modes"].as_array().unwrap();
+
+    let ids: Vec<&str> = modes.iter().map(|m| m["id"].as_str().unwrap()).collect();
+    assert_eq!(ids, ["blitz", "sprint40", "versus"], "sorted by id");
+
+    let sprint = modes.iter().find(|m| m["id"] == "sprint40").unwrap();
+    assert_eq!(sprint["goal"]["type"], "lines");
+    assert_eq!(sprint["goal"]["count"], 40);
+    assert_eq!(sprint["config"]["preview_len"], 5);
+    assert!(!sprint["name"].as_str().unwrap().is_empty());
+}
+
+#[test]
+fn the_generated_json_is_stable_across_runs() {
+    // CI diffs it against a committed file, so unstable ordering would turn every
+    // unrelated change into a spurious diff.
+    let a = config::modes_json(Path::new("../../modes")).unwrap();
+    let b = config::modes_json(Path::new("../../modes")).unwrap();
+    assert_eq!(a, b);
+    assert!(a.ends_with('\n'));
+}
+
+#[test]
+fn a_broken_mode_directory_produces_errors_rather_than_a_file() {
+    let err = config::modes_json(Path::new("../../modes/does-not-exist")).unwrap_err();
+    assert!(!err.is_empty());
+}

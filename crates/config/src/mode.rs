@@ -196,6 +196,19 @@ pub fn load_modes(dir: &Path) -> Result<Vec<ModeSpec>, Vec<ConfigError>> {
     }
 }
 
+/// Every mode in a directory, as the JSON the client bundles.
+///
+/// Emitted from the same files the server reads, so a mode is defined once and the browser
+/// needs no TOML parser. Modes are ordered by id, so the output does not depend on what
+/// order a filesystem hands back entries.
+pub fn modes_json(dir: &Path) -> Result<String, Vec<ConfigError>> {
+    let modes = load_modes(dir)?;
+    let doc = serde_json::json!({ "version": SUPPORTED_SPEC_VERSION, "modes": modes });
+    let mut text = serde_json::to_string_pretty(&doc).expect("modes should serialize");
+    text.push('\n');
+    Ok(text)
+}
+
 /// Check every key in a table against a descriptor set: known key, right type, in range.
 fn validate_table<T: Tunable>(
     path: &Path,

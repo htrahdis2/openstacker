@@ -1,0 +1,186 @@
+{
+  "modes": [
+    {
+      "config": {
+        "attack_table": {
+          "double": 1,
+          "mini_spin_double": 1,
+          "mini_spin_single": 0,
+          "perfect_clear": 10,
+          "quad": 4,
+          "single": 0,
+          "spin_double": 4,
+          "spin_single": 2,
+          "spin_triple": 6,
+          "triple": 2
+        },
+        "b2b_bonus": 1,
+        "clear_delay_ms": 0,
+        "combo_table": [
+          0,
+          0,
+          1,
+          1,
+          1,
+          2,
+          2,
+          3,
+          3,
+          4,
+          4,
+          4,
+          5
+        ],
+        "garbage_cap": 8,
+        "garbage_delay_ms": 1000,
+        "garbage_hole_repeat": true,
+        "gravity": {
+          "stages": [
+            {
+              "from_tick": 0,
+              "ms_per_row": 1000
+            },
+            {
+              "from_tick": 1800,
+              "ms_per_row": 500
+            },
+            {
+              "from_tick": 3600,
+              "ms_per_row": 250
+            },
+            {
+              "from_tick": 5400,
+              "ms_per_row": 100
+            }
+          ],
+          "type": "staged"
+        },
+        "hold_enabled": true,
+        "lock_delay_ms": 500,
+        "lock_reset_cap": 15,
+        "lock_reset_mode": "extended",
+        "preview_len": 5,
+        "spawn_delay_ms": 0,
+        "spin_detection": "three_corner"
+      },
+      "description": "Score as much as possible in two minutes. Gravity ramps up as it goes.",
+      "goal": {
+        "ms": 120000,
+        "type": "time"
+      },
+      "id": "blitz",
+      "name": "Blitz",
+      "spec_version": 1
+    },
+    {
+      "config": {
+        "attack_table": {
+          "double": 1,
+          "mini_spin_double": 1,
+          "mini_spin_single": 0,
+          "perfect_clear": 10,
+          "quad": 4,
+          "single": 0,
+          "spin_double": 4,
+          "spin_single": 2,
+          "spin_triple": 6,
+          "triple": 2
+        },
+        "b2b_bonus": 1,
+        "clear_delay_ms": 0,
+        "combo_table": [
+          0,
+          0,
+          1,
+          1,
+          1,
+          2,
+          2,
+          3,
+          3,
+          4,
+          4,
+          4,
+          5
+        ],
+        "garbage_cap": 8,
+        "garbage_delay_ms": 1000,
+        "garbage_hole_repeat": true,
+        "gravity": {
+          "ms_per_row": 1000,
+          "type": "fixed"
+        },
+        "hold_enabled": true,
+        "lock_delay_ms": 500,
+        "lock_reset_cap": 15,
+        "lock_reset_mode": "extended",
+        "preview_len": 5,
+        "spawn_delay_ms": 0,
+        "spin_detection": "three_corner"
+      },
+      "description": "Clear 40 rows as fast as you can.",
+      "goal": {
+        "count": 40,
+        "type": "lines"
+      },
+      "id": "sprint40",
+      "name": "Sprint 40",
+      "spec_version": 1
+    },
+    {
+      "config": {
+        "attack_table": {
+          "double": 1,
+          "mini_spin_double": 1,
+          "mini_spin_single": 0,
+          "perfect_clear": 10,
+          "quad": 4,
+          "single": 0,
+          "spin_double": 4,
+          "spin_single": 2,
+          "spin_triple": 6,
+          "triple": 2
+        },
+        "b2b_bonus": 1,
+        "clear_delay_ms": 0,
+        "combo_table": [
+          0,
+          0,
+          1,
+          1,
+          1,
+          2,
+          2,
+          3,
+          3,
+          4,
+          4,
+          4,
+          5
+        ],
+        "garbage_cap": 8,
+        "garbage_delay_ms": 1000,
+        "garbage_hole_repeat": true,
+        "gravity": {
+          "ms_per_row": 1000,
+          "type": "fixed"
+        },
+        "hold_enabled": true,
+        "lock_delay_ms": 500,
+        "lock_reset_cap": 15,
+        "lock_reset_mode": "extended",
+        "preview_len": 5,
+        "spawn_delay_ms": 0,
+        "spin_detection": "three_corner"
+      },
+      "description": "Send rows to your opponent and outlast them.",
+      "goal": {
+        "type": "survival"
+      },
+      "id": "versus",
+      "name": "Versus",
+      "spec_version": 1
+    }
+  ],
+  "version": 1
+}

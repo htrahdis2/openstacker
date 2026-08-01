@@ -24,13 +24,31 @@
 
       <section class="stage">
         <div class="garbage"><div class="garbage-fill" id="garbage"></div></div>
-        <canvas id="board"></canvas>
+        <div class="board-wrap">
+          <canvas id="board"></canvas>
+          <div id="overlay" class="overlay">
+            <div class="card">
+              <h1 id="overlay-title">openstacker</h1>
+              <p id="overlay-note" class="note"></p>
+              <ul id="mode-list" class="modes"></ul>
+              <dl id="result" class="result" hidden></dl>
+              <div class="actions">
+                <button id="again" type="button" hidden>play again</button>
+                <button id="back" type="button" hidden>change mode</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <aside class="rail">
         <section class="box">
           <h2>next</h2>
           <canvas id="next"></canvas>
+        </section>
+        <section class="box">
+          <h2 id="goal-label">goal</h2>
+          <p id="goal-value" class="goal">—</p>
         </section>
       </aside>
     </main>

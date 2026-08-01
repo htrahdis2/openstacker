@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/config", "crates/engine", "crates/replay", "crates/replay-cli"]
+members = ["crates/client-wasm", "crates/config", "crates/engine", "crates/replay", "crates/replay-cli"]
 
 [workspace.package]
 version = "0.1.0"

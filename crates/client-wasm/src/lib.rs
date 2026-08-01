@@ -15,7 +15,8 @@ pub use game::Game;
 use config::Settings;
 use engine::config::desc::Tunable;
 use engine::{
-    Action, Buttons, ENGINE_VER, Handling, MatchConfig, ms_to_subticks, subticks_to_centiframes,
+    Action, Buttons, ENGINE_VER, Handling, MatchConfig, QuadKind, ms_to_subticks,
+    subticks_to_centiframes,
 };
 use wasm_bindgen::prelude::*;
 
@@ -176,6 +177,26 @@ pub fn engine_ver() -> u32 {
 #[wasm_bindgen(js_name = defaultMatchConfig)]
 pub fn default_match_config() -> String {
     serde_json::to_string(&MatchConfig::default()).expect("match config should serialize")
+}
+
+/// The spawn shape of each kind, keyed by its render-channel index.
+///
+/// The hold and next boxes draw pieces that are not on the board, so they need the shapes
+/// themselves. Serving them from here keeps the geometry defined in one place.
+#[wasm_bindgen(js_name = pieceShapes)]
+pub fn piece_shapes() -> String {
+    let shapes: serde_json::Map<String, serde_json::Value> = QuadKind::ALL
+        .iter()
+        .map(|kind| {
+            let cells: Vec<[i32; 2]> = engine::Piece::new(*kind, engine::Rot::R0, 0, 0)
+                .cells()
+                .iter()
+                .map(|(x, y)| [*x, *y])
+                .collect();
+            (kind.color().to_string(), serde_json::json!(cells))
+        })
+        .collect();
+    serde_json::to_string(&shapes).expect("shapes should serialize")
 }
 
 /// Every handling key that reaches the simulation, in schema order.
@@ -374,6 +395,30 @@ mod tests {
         let config = default_match_config();
         let parsed: MatchConfig = serde_json::from_str(&config).unwrap();
         assert_eq!(parsed, MatchConfig::default());
+    }
+
+    #[test]
+    fn every_kind_has_a_shape_of_four_cells() {
+        let v: serde_json::Value = serde_json::from_str(&piece_shapes()).unwrap();
+        let shapes = v.as_object().unwrap();
+        assert_eq!(shapes.len(), 7);
+        for kind in QuadKind::ALL {
+            let cells = shapes[&kind.color().to_string()].as_array().unwrap();
+            assert_eq!(cells.len(), 4, "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn shapes_are_keyed_by_the_index_the_frame_block_reports() {
+        // The client looks a shape up by the kind it read out of the block, so the two
+        // have to agree on what a key means.
+        let v: serde_json::Value = serde_json::from_str(&piece_shapes()).unwrap();
+        let g = game();
+        let kind = g.frame().active_kind;
+        assert!(
+            v.get(kind.to_string()).is_some(),
+            "no shape for kind {kind}"
+        );
     }
 
     #[test]

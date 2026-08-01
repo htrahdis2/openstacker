@@ -8,7 +8,9 @@
 import { Clock } from "./clock";
 import { Input, attach, keymap } from "./input";
 import { drawBoard, geometry } from "./render/board";
+import { drawHold, drawNext, formatPps, formatTime, garbageFill, sizeBoxes } from "./render/hud";
 import { skin } from "./render/palette";
+import type { Shapes } from "./render/piece";
 import { readFrame } from "./sim/frame";
 import {
   Game,
@@ -18,22 +20,33 @@ import {
   defaultSettings,
   initSim,
   newSeed,
+  pieceShapes,
   simLayout,
 } from "./sim/wasm";
 
 const CELL = 30;
 
-const canvas = document.getElementById("board") as HTMLCanvasElement;
-const status = document.getElementById("status") as HTMLElement;
-const statTick = document.getElementById("stat-tick") as HTMLElement;
-const statTime = document.getElementById("stat-time") as HTMLElement;
-const statPieces = document.getElementById("stat-pieces") as HTMLElement;
-const statLines = document.getElementById("stat-lines") as HTMLElement;
+const el = <T extends HTMLElement>(id: string): T => {
+  const found = document.getElementById(id);
+  if (!found) throw new Error(`the page has no #${id}`);
+  return found as T;
+};
+
+const canvas = el<HTMLCanvasElement>("board");
+const holdCanvas = el<HTMLCanvasElement>("hold");
+const nextCanvas = el<HTMLCanvasElement>("next");
+const garbage = el("garbage");
+const status = el("status");
+const statTime = el("stat-time");
+const statLines = el("stat-lines");
+const statPieces = el("stat-pieces");
+const statPps = el("stat-pps");
 
 await initSim();
 
 const settings = JSON.parse(defaultSettings());
 const theme = skin(settings.cosmetic.skin);
+const shapes = JSON.parse(pieceShapes()) as Shapes;
 const game = new Game(newSeed(), defaultMatchConfig(), JSON.stringify(settings.handling));
 const views = new GameViews(game);
 const clock = new Clock();
@@ -89,10 +102,16 @@ function draw(): void {
     showGrid: settings.cosmetic.show_grid,
   });
 
-  statTick.textContent = String(reading.tick);
-  statTime.textContent = (reading.tick / 60).toFixed(2);
-  statPieces.textContent = String(reading.pieces);
+  sizeBoxes({ hold: holdCanvas, next: nextCanvas }, reading.preview.length);
+  drawHold(holdCanvas, reading, shapes, theme);
+  drawNext(nextCanvas, reading, shapes, theme);
+
+  statTime.textContent = formatTime(reading.tick);
   statLines.textContent = String(reading.lines);
+  statPieces.textContent = String(reading.pieces);
+  statPps.textContent = formatPps(reading.pieces, reading.tick);
+  garbage.style.height = `${garbageFill(reading.pendingRows) * 100}%`;
+
   if (reading.over) status.textContent = "topped out";
 }
 

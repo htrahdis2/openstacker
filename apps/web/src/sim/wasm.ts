@@ -16,10 +16,21 @@ import init, {
   frameLayout,
   loadSettings,
   normalizeSettings,
+  pieceShapes,
 } from "../wasm/client.js";
 import type { FrameLayout } from "./frame";
 
-export { Game, buttonBits, centiframes, defaultMatchConfig, defaultSettings, engineVer, loadSettings, normalizeSettings };
+export {
+  Game,
+  buttonBits,
+  centiframes,
+  defaultMatchConfig,
+  defaultSettings,
+  engineVer,
+  loadSettings,
+  normalizeSettings,
+  pieceShapes,
+};
 
 let memory: WebAssembly.Memory | null = null;
 let layout: FrameLayout | null = null;

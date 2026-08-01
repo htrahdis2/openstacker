@@ -9,20 +9,32 @@
   </head>
   <body>
     <main id="app">
+      <aside class="rail rail-left">
+        <section class="box">
+          <h2>hold</h2>
+          <canvas id="hold"></canvas>
+        </section>
+        <dl id="stats">
+          <dt>time</dt><dd id="stat-time">0:00.00</dd>
+          <dt>lines</dt><dd id="stat-lines">0</dd>
+          <dt>pieces</dt><dd id="stat-pieces">0</dd>
+          <dt>pps</dt><dd id="stat-pps">0.00</dd>
+        </dl>
+      </aside>
+
       <section class="stage">
+        <div class="garbage"><div class="garbage-fill" id="garbage"></div></div>
         <canvas id="board"></canvas>
       </section>
-      <aside class="panel">
-        <h1>openstacker</h1>
-        <dl id="stats">
-          <dt>tick</dt><dd id="stat-tick">0</dd>
-          <dt>time</dt><dd id="stat-time">0.00</dd>
-          <dt>pieces</dt><dd id="stat-pieces">0</dd>
-          <dt>lines</dt><dd id="stat-lines">0</dd>
-        </dl>
-        <p id="status" class="status"></p>
+
+      <aside class="rail">
+        <section class="box">
+          <h2>next</h2>
+          <canvas id="next"></canvas>
+        </section>
       </aside>
     </main>
+    <p id="status" class="status"></p>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -6,10 +6,20 @@
  */
 
 import { Clock } from "./clock";
+import { Input, attach, keymap } from "./input";
 import { drawBoard, geometry, topRow } from "./render/board";
 import { skin } from "./render/palette";
 import { readFrame } from "./sim/frame";
-import { Game, GameViews, defaultMatchConfig, defaultSettings, initSim, newSeed, simLayout } from "./sim/wasm";
+import {
+  Game,
+  GameViews,
+  buttonBits,
+  defaultMatchConfig,
+  defaultSettings,
+  initSim,
+  newSeed,
+  simLayout,
+} from "./sim/wasm";
 
 const CELL = 30;
 
@@ -27,6 +37,8 @@ const theme = skin(settings.cosmetic.skin);
 const game = new Game(newSeed(), defaultMatchConfig(), JSON.stringify(settings.handling));
 const views = new GameViews(game);
 const clock = new Clock();
+const input = new Input(keymap(settings.keybinds, buttonBits));
+attach(window, input);
 
 const ctx = canvas.getContext("2d");
 if (!ctx) throw new Error("this browser has no 2d canvas");
@@ -51,7 +63,8 @@ function resize(top: number): ReturnType<typeof geometry> {
 
 function step(ticks: number): void {
   for (let i = 0; i < ticks; i++) {
-    game.tick(0);
+    // Sampled per tick, not per frame: a catch-up run must not replay one press.
+    game.tick(input.consume());
   }
   draw();
 }
@@ -85,7 +98,7 @@ function draw(): void {
 
 // A handle for driving the game without a display, which is how it is tested.
 if (import.meta.env.DEV) {
-  Object.assign(window, { openstacker: { step, draw, game, clock } });
+  Object.assign(window, { openstacker: { step, draw, game, clock, input } });
 }
 
 requestAnimationFrame(frame);

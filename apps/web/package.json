@@ -1,0 +1,20 @@
+{
+  "name": "web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "wasm": "wasm-pack build ../../crates/client-wasm --target web --out-dir ../../apps/web/src/wasm --out-name client",
+    "dev": "pnpm run wasm && vite",
+    "build": "pnpm run wasm && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vite-plugin-top-level-await": "^1.4.4",
+    "vite-plugin-wasm": "^3.4.1",
+    "vitest": "^2.1.8"
+  }
+}

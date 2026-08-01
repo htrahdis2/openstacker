@@ -1,0 +1,6 @@
+packages:
+  - "apps/*"
+
+# esbuild ships a platform binary from its install script; vite will not run without it.
+onlyBuiltDependencies:
+  - esbuild

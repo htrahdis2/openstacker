@@ -22,6 +22,34 @@ pub const FLAG_OVER: u8 = 1 << 3;
 /// The four cells of a piece, in board coordinates.
 pub type Cells = [(i8, i8); 4];
 
+/// Byte offsets within the block.
+///
+/// The client reads these from the module at startup instead of keeping its own copy, so
+/// the layout is defined once.
+pub mod offset {
+    pub const TICK: usize = 0;
+    pub const LINES: usize = 4;
+    pub const PIECES: usize = 8;
+    pub const ATTACK_SENT: usize = 12;
+    pub const GARBAGE_RECEIVED: usize = 16;
+    pub const EVENTS: usize = 20;
+    pub const ATTACK: usize = 22;
+    pub const LINES_CLEARED: usize = 23;
+    pub const PHASE: usize = 24;
+    pub const FLAGS: usize = 25;
+    pub const ACTIVE_KIND: usize = 26;
+    pub const HOLD_KIND: usize = 27;
+    pub const PREVIEW_LEN: usize = 28;
+    pub const MAX_COMBO: usize = 29;
+    pub const MAX_B2B: usize = 30;
+    pub const PENDING_BATCHES: usize = 31;
+    pub const PENDING_ROWS: usize = 32;
+    pub const NEXT_GARBAGE_IN: usize = 34;
+    pub const ACTIVE_CELLS: usize = 36;
+    pub const GHOST_CELLS: usize = 44;
+    pub const PREVIEW: usize = 52;
+}
+
 /// One tick's worth of state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Frame {
@@ -109,28 +137,33 @@ impl Frame {
 
     /// Serialize into the block, little-endian.
     pub fn write(&self, out: &mut [u8; FRAME_BYTES]) {
+        use offset as o;
         out.fill(0);
-        out[0..4].copy_from_slice(&self.tick.to_le_bytes());
-        out[4..8].copy_from_slice(&self.lines.to_le_bytes());
-        out[8..12].copy_from_slice(&self.pieces.to_le_bytes());
-        out[12..16].copy_from_slice(&self.attack_sent.to_le_bytes());
-        out[16..20].copy_from_slice(&self.garbage_received.to_le_bytes());
-        out[20..22].copy_from_slice(&self.events.bits().to_le_bytes());
-        out[22] = self.attack;
-        out[23] = self.lines_cleared;
-        out[24] = self.phase;
-        out[25] = self.flags();
-        out[26] = self.active_kind;
-        out[27] = self.hold_kind.unwrap_or(0);
-        out[28] = self.preview_len;
-        out[29] = self.max_combo;
-        out[30] = self.max_b2b;
-        out[31] = self.pending_batches;
-        out[32..34].copy_from_slice(&self.pending_rows.to_le_bytes());
-        out[34..36].copy_from_slice(&self.next_garbage_in.to_le_bytes());
-        write_cells(&mut out[36..44], self.active);
-        write_cells(&mut out[44..52], self.ghost);
-        out[52..52 + MAX_PREVIEW].copy_from_slice(&self.preview);
+        put(out, o::TICK, &self.tick.to_le_bytes());
+        put(out, o::LINES, &self.lines.to_le_bytes());
+        put(out, o::PIECES, &self.pieces.to_le_bytes());
+        put(out, o::ATTACK_SENT, &self.attack_sent.to_le_bytes());
+        put(
+            out,
+            o::GARBAGE_RECEIVED,
+            &self.garbage_received.to_le_bytes(),
+        );
+        put(out, o::EVENTS, &self.events.bits().to_le_bytes());
+        out[o::ATTACK] = self.attack;
+        out[o::LINES_CLEARED] = self.lines_cleared;
+        out[o::PHASE] = self.phase;
+        out[o::FLAGS] = self.flags();
+        out[o::ACTIVE_KIND] = self.active_kind;
+        out[o::HOLD_KIND] = self.hold_kind.unwrap_or(0);
+        out[o::PREVIEW_LEN] = self.preview_len;
+        out[o::MAX_COMBO] = self.max_combo;
+        out[o::MAX_B2B] = self.max_b2b;
+        out[o::PENDING_BATCHES] = self.pending_batches;
+        put(out, o::PENDING_ROWS, &self.pending_rows.to_le_bytes());
+        put(out, o::NEXT_GARBAGE_IN, &self.next_garbage_in.to_le_bytes());
+        write_cells(&mut out[o::ACTIVE_CELLS..o::ACTIVE_CELLS + 8], self.active);
+        write_cells(&mut out[o::GHOST_CELLS..o::GHOST_CELLS + 8], self.ghost);
+        put(out, o::PREVIEW, &self.preview);
     }
 
     fn flags(&self) -> u8 {
@@ -149,6 +182,10 @@ impl Frame {
         }
         f
     }
+}
+
+fn put(out: &mut [u8; FRAME_BYTES], at: usize, bytes: &[u8]) {
+    out[at..at + bytes.len()].copy_from_slice(bytes);
 }
 
 fn write_cells(out: &mut [u8], cells: Option<Cells>) {

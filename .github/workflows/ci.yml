@@ -73,3 +73,32 @@ jobs:
         run: cargo doc --no-deps --workspace
         env:
           RUSTDOCFLAGS: -D warnings
+
+  client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: cargo install wasm-pack --locked --version 0.15.0
+      - run: pnpm install --frozen-lockfile
+
+      # The bindings are generated, so typechecking without them proves nothing.
+      - name: Build the wasm module
+        run: pnpm --dir apps/web run wasm
+
+      - name: Typecheck
+        run: pnpm --dir apps/web run typecheck
+
+      - name: Client tests
+        run: pnpm --dir apps/web test

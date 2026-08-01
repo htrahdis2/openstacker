@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>openstacker</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section class="stage">
+        <canvas id="board"></canvas>
+      </section>
+      <aside class="panel">
+        <h1>openstacker</h1>
+        <dl id="stats">
+          <dt>tick</dt><dd id="stat-tick">0</dd>
+          <dt>time</dt><dd id="stat-time">0.00</dd>
+          <dt>pieces</dt><dd id="stat-pieces">0</dd>
+          <dt>lines</dt><dd id="stat-lines">0</dd>
+        </dl>
+        <p id="status" class="status"></p>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -81,6 +81,50 @@ pub fn frame_bytes() -> usize {
     FRAME_BYTES
 }
 
+/// Where each field sits in the frame block, and the flag bits.
+///
+/// Read at startup so the client decodes the block from this definition rather than a
+/// copy of it that can fall behind.
+#[wasm_bindgen(js_name = frameLayout)]
+pub fn frame_layout() -> String {
+    use frame::offset as o;
+    serde_json::json!({
+        "bytes": FRAME_BYTES,
+        "maxPreview": engine::MAX_PREVIEW,
+        "offsets": {
+            "tick": o::TICK,
+            "lines": o::LINES,
+            "pieces": o::PIECES,
+            "attackSent": o::ATTACK_SENT,
+            "garbageReceived": o::GARBAGE_RECEIVED,
+            "events": o::EVENTS,
+            "attack": o::ATTACK,
+            "linesCleared": o::LINES_CLEARED,
+            "phase": o::PHASE,
+            "flags": o::FLAGS,
+            "activeKind": o::ACTIVE_KIND,
+            "holdKind": o::HOLD_KIND,
+            "previewLen": o::PREVIEW_LEN,
+            "maxCombo": o::MAX_COMBO,
+            "maxB2b": o::MAX_B2B,
+            "pendingBatches": o::PENDING_BATCHES,
+            "pendingRows": o::PENDING_ROWS,
+            "nextGarbageIn": o::NEXT_GARBAGE_IN,
+            "activeCells": o::ACTIVE_CELLS,
+            "ghostCells": o::GHOST_CELLS,
+            "preview": o::PREVIEW,
+        },
+        "flags": {
+            "active": frame::FLAG_ACTIVE,
+            "ghost": frame::FLAG_GHOST,
+            "hold": frame::FLAG_HOLD,
+            "over": frame::FLAG_OVER,
+        },
+        "board": { "width": engine::BOARD_W, "height": engine::BOARD_H, "visible": engine::VISIBLE_H },
+    })
+    .to_string()
+}
+
 /// The button an action resolves to, by the key the settings schema uses.
 ///
 /// Fetched rather than restated, so the client has no second copy of the mapping.
@@ -330,6 +374,21 @@ mod tests {
         let config = default_match_config();
         let parsed: MatchConfig = serde_json::from_str(&config).unwrap();
         assert_eq!(parsed, MatchConfig::default());
+    }
+
+    #[test]
+    fn the_layout_describes_every_field_in_the_block() {
+        // A field the client cannot find an offset for is a field it cannot draw.
+        let v: serde_json::Value = serde_json::from_str(&frame_layout()).unwrap();
+        let offsets = v["offsets"].as_object().unwrap();
+        assert_eq!(offsets.len(), 21);
+        for (key, at) in offsets {
+            let at = at.as_u64().unwrap() as usize;
+            assert!(at < FRAME_BYTES, "{key} is outside the block");
+        }
+        assert_eq!(v["bytes"], FRAME_BYTES);
+        assert_eq!(v["board"]["visible"], 20);
+        assert_eq!(v["flags"]["active"], 1);
     }
 
     #[test]

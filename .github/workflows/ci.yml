@@ -73,6 +73,11 @@ jobs:
       - name: Settings schema is current
         run: cargo run -q -p config --bin emit-schema -- --check
 
+      # The client bundles the generated modes, so a mode added on disk that is missing
+      # from it is a mode nobody can play.
+      - name: Generated modes are current
+        run: cargo run -q -p config --bin emit-modes -- --check
+
       - name: Docs build without broken links
         run: cargo doc --no-deps --workspace
         env:

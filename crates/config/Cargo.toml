@@ -12,6 +12,12 @@ default = ["files"]
 # which is all a browser build needs and none of which touches the filesystem.
 files = ["dep:toml", "dep:thiserror"]
 
+# Emitting the modes means reading them, so this binary needs the file half of the crate.
+[[bin]]
+name = "emit-modes"
+path = "src/bin/emit-modes.rs"
+required-features = ["files"]
+
 [dependencies]
 engine = { path = "../engine" }
 serde = { workspace = true, features = ["std"] }

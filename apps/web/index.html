@@ -37,8 +37,6 @@
                 <button id="again" type="button" hidden>play again</button>
                 <button id="back" type="button" hidden>change mode</button>
                 <button id="save-replay" type="button" hidden>save replay</button>
-                <button id="open-replays" type="button">replays</button>
-                <button id="open-settings" type="button">settings</button>
               </div>
             </div>
           </div>
@@ -56,6 +54,12 @@
         </section>
       </aside>
     </main>
+
+    <nav class="footer">
+      <button id="open-replays" type="button">replays</button>
+      <button id="open-settings" type="button">settings</button>
+      <span id="status" class="status"></span>
+    </nav>
 
     <div id="replays-screen" class="screen" hidden>
       <header class="screen-head">
@@ -75,7 +79,6 @@
       <div id="settings-panel" class="settings-panel"></div>
     </div>
 
-    <p id="status" class="status"></p>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

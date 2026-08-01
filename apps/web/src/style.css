@@ -11,6 +11,16 @@
   box-sizing: border-box;
 }
 
+/**
+ * The hidden attribute has to win.
+ *
+ * Any rule here that sets `display` outranks the browser's `[hidden] { display: none }`,
+ * so a list styled as a flex column stays on screen after being hidden.
+ */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -132,9 +142,8 @@ dd:last-of-type {
 
 .status {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--dim);
-  min-height: 1.2em;
 }
 
 .board-wrap {
@@ -230,14 +239,40 @@ dd:last-of-type {
   margin: 0;
 }
 
+/* The card sits inside the board, so this row is about 270px wide on any screen. */
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .actions button {
-  flex: 1;
+  flex: 1 1 120px;
   padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.actions button:hover {
+  border-color: var(--dim);
+}
+
+/* Navigation that is not about the current run, kept out of the overlay. */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.footer button {
+  padding: 6px 14px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 3px;
@@ -247,7 +282,7 @@ dd:last-of-type {
   cursor: pointer;
 }
 
-.actions button:hover {
+.footer button:hover {
   border-color: var(--dim);
 }
 
@@ -352,7 +387,7 @@ dd:last-of-type {
 
 .settings-row {
   display: grid;
-  grid-template-columns: 180px 1fr;
+  grid-template-columns: minmax(0, 180px) minmax(0, 1fr);
   gap: 4px 16px;
   align-items: center;
   padding: 7px 0;
@@ -417,6 +452,41 @@ dd:last-of-type {
   font-size: 10px;
   color: var(--dim);
   line-height: 1.5;
+}
+
+/**
+ * Narrow windows.
+ *
+ * Touch is a non-goal, but a half-width desktop window should not scroll sideways. The
+ * rails move under the board and settings put their control beneath its label.
+ */
+@media (max-width: 640px) {
+  #app {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .rail,
+  .rail-left {
+    width: auto;
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .rail .box,
+  .rail dl {
+    width: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .settings-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-readout {
+    min-width: 0;
+  }
 }
 
 .best {

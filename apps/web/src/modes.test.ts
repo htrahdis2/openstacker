@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MODES, type Goal, goalReached, isPlayable, mode, progress, ticksFor } from "./modes";
+import { MODES, type Goal, goalReached, isPlayable, mode, progress, remaining, ticksFor } from "./modes";
 
 describe("the shipped modes", () => {
   it("are the ones on disk", () => {
@@ -68,5 +68,30 @@ describe("progress", () => {
   it("survives a goal of zero rather than dividing by it", () => {
     expect(progress({ type: "lines", count: 0 }, { lines: 0, tick: 0 })).toBe(1);
     expect(progress({ type: "time", ms: 0 }, { lines: 0, tick: 0 })).toBe(0);
+  });
+});
+
+describe("remaining", () => {
+  it("counts rows left on a line goal", () => {
+    expect(remaining({ type: "lines", count: 40 }, { lines: 12, tick: 0 })).toBe("28 rows");
+  });
+
+  it("never counts below zero when a clear overshoots", () => {
+    expect(remaining({ type: "lines", count: 40 }, { lines: 44, tick: 0 })).toBe("0 rows");
+  });
+
+  it("reads a time goal as a clock, not a raw float", () => {
+    const blitz: Goal = { type: "time", ms: 120_000 };
+    expect(remaining(blitz, { lines: 0, tick: 0 })).toBe("2:00.0");
+    expect(remaining(blitz, { lines: 0, tick: 60 })).toBe("1:59.0");
+    expect(remaining(blitz, { lines: 0, tick: 7200 })).toBe("0:00.0");
+  });
+
+  it("keeps the seconds field two digits wide", () => {
+    expect(remaining({ type: "time", ms: 65_000 }, { lines: 0, tick: 0 })).toBe("1:05.0");
+  });
+
+  it("has nothing to count for a goal it cannot decide", () => {
+    expect(remaining({ type: "survival" }, { lines: 0, tick: 0 })).toBeNull();
   });
 });

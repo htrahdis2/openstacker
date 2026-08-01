@@ -75,9 +75,13 @@ export function progress(goal: Goal, at: Progress): number {
 export function remaining(goal: Goal, at: Progress): string | null {
   switch (goal.type) {
     case "lines":
-      return `${Math.max(goal.count - at.lines, 0)} left`;
-    case "time":
-      return `${Math.max(ticksFor(goal.ms) - at.tick, 0) / 60} s left`;
+      return `${Math.max(goal.count - at.lines, 0)} rows`;
+    case "time": {
+      const ticks = Math.max(ticksFor(goal.ms) - at.tick, 0);
+      const seconds = ticks / 60;
+      const minutes = Math.floor(seconds / 60);
+      return `${minutes}:${(seconds - minutes * 60).toFixed(1).padStart(4, "0")}`;
+    }
     case "score":
     case "survival":
       return null;

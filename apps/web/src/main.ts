@@ -42,6 +42,9 @@ import {
 
 const CELL = 30;
 
+/** Preview slots to reserve before a mode has said how many it wants. */
+const DEFAULT_PREVIEW = 5;
+
 const el = <T extends HTMLElement>(id: string): T => {
   const found = document.getElementById(id);
   if (!found) throw new Error(`the page has no #${id}`);
@@ -238,6 +241,13 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 
+/** Empty the hold and next boxes, so a finished game's pieces do not linger in a menu. */
+function clearBoxes(): void {
+  for (const box of [holdCanvas, nextCanvas]) {
+    box.getContext("2d")?.clearRect(0, 0, box.width, box.height);
+  }
+}
+
 function read(): Frame | null {
   if (!views) return null;
   views.refresh();
@@ -261,6 +271,10 @@ function draw(): void {
   const geo = resize();
   const reading = read();
   if (!reading || !views) {
+    // The boxes are sized here as well as during a game. A canvas nobody has sized is
+    // 300x150, which is wider than the rail it sits in.
+    sizeBoxes({ hold: holdCanvas, next: nextCanvas }, DEFAULT_PREVIEW);
+    clearBoxes();
     ctx!.clearRect(0, 0, geo.width, geo.height);
     return;
   }

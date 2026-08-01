@@ -33,7 +33,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: 120px;
+  width: 132px;
+  min-width: 0;
 }
 
 .rail-left {
@@ -90,31 +91,37 @@ canvas {
   transition: height 80ms linear;
 }
 
+/**
+ * Label above value, not beside it. A narrow rail cannot fit both on one line, and a
+ * value that grows — a sprint passing a minute, a piece count reaching four digits —
+ * would push out of the box.
+ */
 dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px 12px;
   margin: 0;
-  padding: 8px;
-  font-size: 12px;
+  padding: 10px;
   width: 100%;
+  min-width: 0;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 3px;
 }
 
 dt {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--dim);
 }
 
 dd {
-  margin: 0;
-  text-align: right;
+  margin: 0 0 8px;
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
-#stat-time {
-  font-size: 15px;
+dd:last-of-type {
+  margin-bottom: 0;
 }
 
 .status {

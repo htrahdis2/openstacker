@@ -12,6 +12,14 @@ import { drawBoard, geometry } from "./render/board";
 import { drawHold, drawNext, formatPps, formatTime, garbageFill, sizeBoxes } from "./render/hud";
 import { skin } from "./render/palette";
 import type { Shapes } from "./render/piece";
+import {
+  type StoredReplay,
+  best,
+  download,
+  open as openReplays,
+  recordBest,
+  saveReplay,
+} from "./replays/store";
 import { buildPanel } from "./settings/panel";
 import { type Settings, deviceId, load, save } from "./settings/store";
 import { type Frame, readFrame } from "./sim/frame";
@@ -55,6 +63,8 @@ const modeList = el("mode-list");
 const resultList = el<HTMLElement>("result");
 const againButton = el<HTMLButtonElement>("again");
 const backButton = el<HTMLButtonElement>("back");
+const saveReplayButton = el<HTMLButtonElement>("save-replay");
+const overlayBest = el("overlay-best");
 const openSettings = el<HTMLButtonElement>("open-settings");
 const closeSettings = el<HTMLButtonElement>("close-settings");
 const settingsScreen = el("settings-screen");
@@ -91,6 +101,7 @@ let phase: Phase = "menu";
 let current: Mode | null = null;
 let game: Game | null = null;
 let views: GameViews | null = null;
+let lastReplay: StoredReplay | null = null;
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) clock.pause();
@@ -114,6 +125,50 @@ function finish(frame: Frame): void {
   phase = "done";
   const met = current ? goalReached(current.goal, frame) : false;
   showResult(frame, met);
+  void keep(frame, met);
+}
+
+/**
+ * Record the run.
+ *
+ * Every game is kept: the recording is the seed, the rules, the handling and the inputs,
+ * so a whole game is a few hundred bytes and there is nothing to decide about which to
+ * throw away.
+ */
+async function keep(frame: Frame, met: boolean): Promise<void> {
+  if (!game || !current) return;
+  const stored: StoredReplay = {
+    id: crypto.randomUUID(),
+    mode: current.id,
+    createdAt: Date.now(),
+    ticks: frame.tick,
+    lines: frame.lines,
+    pieces: frame.pieces,
+    finished: met,
+    payload: game.finishReplay(),
+  };
+  lastReplay = stored;
+  saveReplayButton.hidden = false;
+
+  try {
+    const db = await openReplays();
+    await saveReplay(db, stored);
+    const beaten = await recordBest(
+      db,
+      { mode: stored.mode, ticks: stored.ticks, replayId: stored.id, createdAt: stored.createdAt },
+      met,
+    );
+    const record = await best(db, stored.mode);
+    overlayBest.hidden = !record;
+    if (record) {
+      overlayBest.textContent = beaten
+        ? `new best · ${formatTime(record.ticks)}`
+        : `best · ${formatTime(record.ticks)}`;
+    }
+  } catch {
+    // Storage can be unavailable. The run still happened and is still downloadable.
+    status.textContent = "this run could not be saved";
+  }
 }
 
 function step(ticks: number): void {
@@ -203,6 +258,8 @@ function showMenu(): void {
   modeList.hidden = false;
   againButton.hidden = true;
   backButton.hidden = true;
+  saveReplayButton.hidden = true;
+  overlayBest.hidden = true;
   goalValue.textContent = "—";
   draw();
   showOverlay(true);
@@ -286,6 +343,16 @@ function openSettingsScreen(): void {
 openSettings.addEventListener("click", openSettingsScreen);
 closeSettings.addEventListener("click", () => {
   settingsScreen.hidden = true;
+});
+
+saveReplayButton.addEventListener("click", () => {
+  if (!lastReplay) return;
+  download(lastReplay, (url, name) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.click();
+  });
 });
 
 againButton.addEventListener("click", () => {

@@ -61,6 +61,10 @@ jobs:
           cargo install wasm-pack --locked --version 0.15.0
           ./scripts/client-parity.sh
 
+      # A recording nobody can verify is a recording nobody can trust.
+      - name: Games captured in the client verify
+        run: ./scripts/capture-roundtrip.sh
+
       - name: Engine purity guard
         run: ./scripts/engine-purity.sh
 

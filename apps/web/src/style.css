@@ -418,3 +418,10 @@ dd:last-of-type {
   color: var(--dim);
   line-height: 1.5;
 }
+
+.best {
+  margin: -8px 0 12px;
+  font-size: 11px;
+  color: #31c7ef;
+  font-variant-numeric: tabular-nums;
+}

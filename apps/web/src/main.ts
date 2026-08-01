@@ -12,14 +12,19 @@ import { drawBoard, geometry } from "./render/board";
 import { drawHold, drawNext, formatPps, formatTime, garbageFill, sizeBoxes } from "./render/hud";
 import { skin } from "./render/palette";
 import type { Shapes } from "./render/piece";
+import { buildPanel } from "./settings/panel";
+import { type Settings, deviceId, load, save } from "./settings/store";
 import { type Frame, readFrame } from "./sim/frame";
 import {
   Game,
   GameViews,
   buttonBits,
+  centiframes,
   defaultSettings,
   initSim,
+  loadSettings,
   newSeed,
+  normalizeSettings,
   pieceShapes,
   simLayout,
 } from "./sim/wasm";
@@ -50,15 +55,31 @@ const modeList = el("mode-list");
 const resultList = el<HTMLElement>("result");
 const againButton = el<HTMLButtonElement>("again");
 const backButton = el<HTMLButtonElement>("back");
+const openSettings = el<HTMLButtonElement>("open-settings");
+const closeSettings = el<HTMLButtonElement>("close-settings");
+const settingsScreen = el("settings-screen");
+const settingsPanel = el("settings-panel");
+const settingsNotes = el("settings-notes");
 
 await initSim();
 
-const settings = JSON.parse(defaultSettings());
-const theme = skin(settings.cosmetic.skin);
+const codec = {
+  load: loadSettings,
+  normalize: normalizeSettings,
+  defaults: defaultSettings,
+};
+
+const stored = load(window.localStorage, codec);
+let settings: Settings = stored.settings;
+deviceId(window.localStorage);
+
+let theme = skin(String(settings.cosmetic.skin));
 const shapes = JSON.parse(pieceShapes()) as Shapes;
 const clock = new Clock();
 const input = new Input(keymap(settings.keybinds, buttonBits));
 attach(window, input);
+
+showNotes(stored.notes);
 
 const ctx = canvas.getContext("2d");
 if (!ctx) throw new Error("this browser has no 2d canvas");
@@ -148,8 +169,8 @@ function draw(): void {
 
   drawBoard(ctx!, reading, views.occupancy, views.colors, geo, {
     skin: theme,
-    ghostOpacity: settings.cosmetic.ghost_opacity,
-    showGrid: settings.cosmetic.show_grid,
+    ghostOpacity: Number(settings.cosmetic.ghost_opacity ?? 0),
+    showGrid: Boolean(settings.cosmetic.show_grid),
   });
 
   sizeBoxes({ hold: holdCanvas, next: nextCanvas }, reading.preview.length);
@@ -231,6 +252,42 @@ function buildMenu(): void {
   }
 }
 
+// ---- settings ---------------------------------------------------------------
+
+/**
+ * Notes are shown, never logged.
+ *
+ * They are the only signal that something a player chose could not be carried forward.
+ */
+function showNotes(notes: string[]): void {
+  settingsNotes.hidden = notes.length === 0;
+  settingsNotes.textContent = notes.join(" · ");
+}
+
+/** Apply settings that take effect without restarting. */
+function applySettings(next: Settings): void {
+  settings = save(window.localStorage, codec, next);
+  theme = skin(String(settings.cosmetic.skin));
+  input.rebind(keymap(settings.keybinds, buttonBits));
+  draw();
+}
+
+function openSettingsScreen(): void {
+  buildPanel(settingsPanel, {
+    settings,
+    centiframes,
+    onChange: applySettings,
+    // Handling is frozen at construction, so a change lands on the next game.
+    locked: () => phase === "running",
+  });
+  settingsScreen.hidden = false;
+}
+
+openSettings.addEventListener("click", openSettingsScreen);
+closeSettings.addEventListener("click", () => {
+  settingsScreen.hidden = true;
+});
+
 againButton.addEventListener("click", () => {
   if (current) start(current);
 });
@@ -259,6 +316,9 @@ if (import.meta.env.DEV) {
       input,
       start,
       showMenu,
+      openSettingsScreen,
+      settings: () => settings,
+      frame: read,
       state: () => ({ phase, mode: current?.id ?? null }),
     },
   });

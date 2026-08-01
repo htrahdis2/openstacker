@@ -1,9 +1,10 @@
 /**
  * Drawing the playfield.
  *
- * Rows 20..39 are the visible field and rows 0..19 are spawn buffer. The buffer is drawn
- * whenever anything occupies it, so a stack that tops out is visible instead of ending for
- * no apparent reason.
+ * Rows 20..39 are the visible field and rows 0..19 are spawn buffer. A band of the buffer
+ * is always drawn, so a stack that tops out is visible instead of ending for no apparent
+ * reason, and so the board never changes size: pieces spawn in the buffer, and a viewport
+ * that opened and closed around them would resize on every piece.
  */
 
 import type { Frame } from "../sim/frame";
@@ -13,7 +14,7 @@ export interface BoardGeometry {
   cell: number;
   width: number;
   height: number;
-  /** First row drawn. Falls below 20 when the buffer is in use. */
+  /** First row drawn. */
   topRow: number;
 }
 
@@ -21,27 +22,23 @@ const BOARD_W = 10;
 const BOARD_H = 40;
 const VISIBLE_H = 20;
 
-/** Rows to draw: the visible field, extended upward to cover anything in the buffer. */
-export function topRow(occupancy: Uint16Array, active: Frame["active"]): number {
-  let top = VISIBLE_H;
-  for (let y = 0; y < VISIBLE_H; y++) {
-    if ((occupancy[y] ?? 0) !== 0) {
-      top = y;
-      break;
-    }
-  }
-  for (const c of active ?? []) {
-    if (c.y < top) top = c.y;
-  }
-  return Math.max(0, Math.min(top, VISIBLE_H));
-}
+/**
+ * Buffer rows kept on screen above the field.
+ *
+ * Pieces spawn across rows 18 and 19, so this has to cover at least two for a spawning
+ * piece to be visible at all. The rest is headroom for seeing what topped a stack out.
+ */
+export const BUFFER_ROWS = 4;
 
-export function geometry(cell: number, top: number): BoardGeometry {
+/** First row drawn. Constant, so the board does not move while a game is running. */
+export const TOP_ROW = VISIBLE_H - BUFFER_ROWS;
+
+export function geometry(cell: number): BoardGeometry {
   return {
     cell,
-    topRow: top,
+    topRow: TOP_ROW,
     width: BOARD_W * cell,
-    height: (BOARD_H - top) * cell,
+    height: (BOARD_H - TOP_ROW) * cell,
   };
 }
 
@@ -67,13 +64,12 @@ export function drawBoard(
   ctx.fillStyle = skin.background;
   ctx.fillRect(0, 0, geo.width, geo.height);
 
-  // The buffer is shaded so the boundary of the playfield stays readable when it shows.
-  if (top < VISIBLE_H) {
-    ctx.fillStyle = skin.grid;
-    ctx.globalAlpha = 0.35;
-    ctx.fillRect(0, 0, geo.width, (VISIBLE_H - top) * cell);
-    ctx.globalAlpha = 1;
-  }
+  // The buffer band is shaded and ruled off, so what is above the field reads as above it.
+  const fieldTop = (VISIBLE_H - top) * cell;
+  ctx.fillStyle = skin.grid;
+  ctx.globalAlpha = 0.35;
+  ctx.fillRect(0, 0, geo.width, fieldTop);
+  ctx.globalAlpha = 1;
 
   if (options.showGrid) {
     ctx.strokeStyle = skin.grid;
@@ -89,6 +85,14 @@ export function drawBoard(
     }
     ctx.stroke();
   }
+
+  ctx.strokeStyle = skin.dim;
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(0, fieldTop + 0.5);
+  ctx.lineTo(geo.width, fieldTop + 0.5);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
 
   for (let y = top; y < BOARD_H; y++) {
     const row = occupancy[y] ?? 0;

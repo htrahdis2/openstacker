@@ -1,32 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { topRow } from "./board";
+import { BUFFER_ROWS, TOP_ROW, geometry } from "./board";
 
-/** A board with the given rows occupied. */
-function occupancy(rows: number[]): Uint16Array {
-  const board = new Uint16Array(40);
-  for (const y of rows) board[y] = 0b11_1111_1111;
-  return board;
-}
-
-describe("topRow", () => {
-  it("shows the visible field when the buffer is empty", () => {
-    expect(topRow(occupancy([30, 35, 39]), null)).toBe(20);
+describe("geometry", () => {
+  it("does not depend on anything that moves", () => {
+    // A viewport that opened around a spawning piece resized the board on every piece,
+    // because pieces spawn in the buffer. Geometry is a function of the cell size alone.
+    const a = geometry(30);
+    const b = geometry(30);
+    expect(a).toEqual(b);
   });
 
-  it("opens the buffer when the stack reaches into it", () => {
-    // Otherwise a stack that tops out looks like it ended for no reason.
-    expect(topRow(occupancy([17, 25, 39]), null)).toBe(17);
+  it("shows the whole visible field plus a band of buffer", () => {
+    const geo = geometry(30);
+    expect(geo.topRow).toBe(TOP_ROW);
+    expect(geo.height).toBe((40 - TOP_ROW) * 30);
+    expect(geo.width).toBe(10 * 30);
   });
 
-  it("opens the buffer for a piece spawning above the field", () => {
-    expect(topRow(occupancy([]), [{ x: 4, y: 18 }, { x: 5, y: 18 }, { x: 4, y: 19 }, { x: 5, y: 19 }])).toBe(18);
+  it("keeps enough buffer on screen for a spawning piece", () => {
+    // Pieces spawn across rows 18 and 19. Fewer than two buffer rows and a new piece is
+    // invisible until it falls into the field.
+    expect(BUFFER_ROWS).toBeGreaterThanOrEqual(2);
+    expect(TOP_ROW).toBeLessThanOrEqual(18);
   });
 
-  it("never scrolls past the top of the buffer", () => {
-    expect(topRow(occupancy([0]), null)).toBe(0);
-  });
-
-  it("never hides part of the visible field", () => {
-    expect(topRow(occupancy([]), [{ x: 0, y: 39 }, { x: 1, y: 39 }, { x: 2, y: 39 }, { x: 3, y: 39 }])).toBe(20);
+  it("scales with the cell size and nothing else", () => {
+    expect(geometry(20).height * 1.5).toBe(geometry(30).height);
+    expect(geometry(20).topRow).toBe(geometry(30).topRow);
   });
 });

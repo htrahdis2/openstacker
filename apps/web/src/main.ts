@@ -7,7 +7,7 @@
 
 import { Clock } from "./clock";
 import { Input, attach, keymap } from "./input";
-import { drawBoard, geometry, topRow } from "./render/board";
+import { drawBoard, geometry } from "./render/board";
 import { skin } from "./render/palette";
 import { readFrame } from "./sim/frame";
 import {
@@ -48,9 +48,9 @@ document.addEventListener("visibilitychange", () => {
   else clock.resume();
 });
 
-function resize(top: number): ReturnType<typeof geometry> {
+function resize(): ReturnType<typeof geometry> {
   const dpr = window.devicePixelRatio || 1;
-  const geo = geometry(CELL, top);
+  const geo = geometry(CELL);
   if (canvas.width !== geo.width * dpr || canvas.height !== geo.height * dpr) {
     canvas.width = geo.width * dpr;
     canvas.height = geo.height * dpr;
@@ -81,7 +81,7 @@ function frame(now: number): void {
 function draw(): void {
   views.refresh();
   const reading = readFrame(views.frame, simLayout());
-  const geo = resize(topRow(views.occupancy, reading.active));
+  const geo = resize();
 
   drawBoard(ctx!, reading, views.occupancy, views.colors, geo, {
     skin: theme,

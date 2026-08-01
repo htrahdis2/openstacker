@@ -525,6 +525,11 @@
               "value": "default"
             },
             {
+              "help": "Softer, lower-contrast piece colors.",
+              "label": "Muted",
+              "value": "muted"
+            },
+            {
               "help": "One color for every piece.",
               "label": "Monochrome",
               "value": "mono"

@@ -4,10 +4,6 @@
  * A skin maps a render-channel index to a color: 0 empty, 1..7 the piece kinds in engine
  * order (I O T S Z J L), 8 garbage. Nothing else reads these indices — the simulation
  * never sees a color, and the renderer never asks a color what a cell is.
- *
- * The mapping is deliberately not the one every falling-block game uses. Piece coloring is
- * the most identifiable protected element of the genre's expression, so this palette pairs
- * shapes with hues that are ours.
  */
 
 export interface Skin {
@@ -24,6 +20,26 @@ export interface Skin {
 const DEFAULT: Skin = {
   id: "default",
   label: "Default",
+  cells: [
+    "transparent",
+    "#31c7ef", // I
+    "#f7d308", // O
+    "#ad4d9c", // T
+    "#42b642", // S
+    "#ef2029", // Z
+    "#5a65ad", // J
+    "#ef7921", // L
+    "#6b7280", // garbage
+  ],
+  grid: "#22252d",
+  background: "#14161b",
+  text: "#e8eaef",
+  dim: "#8b909c",
+};
+
+const MUTED: Skin = {
+  id: "muted",
+  label: "Muted",
   cells: [
     "transparent",
     "#f0568c", // I
@@ -81,7 +97,7 @@ const HIGH_CONTRAST: Skin = {
   dim: "#b8bcc6",
 };
 
-const SKINS: Skin[] = [DEFAULT, MONO, HIGH_CONTRAST];
+const SKINS: Skin[] = [DEFAULT, MUTED, MONO, HIGH_CONTRAST];
 
 export function skin(id: string): Skin {
   return SKINS.find((s) => s.id === id) ?? DEFAULT;

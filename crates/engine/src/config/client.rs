@@ -183,6 +183,11 @@ const SKIN_VARIANTS: &[EnumVariant] = &[
         help: "The bundled theme.",
     },
     EnumVariant {
+        value: "muted",
+        label: "Muted",
+        help: "Softer, lower-contrast piece colors.",
+    },
+    EnumVariant {
         value: "mono",
         label: "Monochrome",
         help: "One color for every piece.",

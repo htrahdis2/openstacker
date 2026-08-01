@@ -3,14 +3,32 @@
 An open-source competitive falling-block stacker. Rust simulation, self-hosted, no ads,
 no accounts required to play.
 
-**Status: early.** The simulation and its tooling work and are well covered by tests.
-There is no client yet, so there is nothing to play. See [SPEC.md](SPEC.md) for the
-overall design and [M0-SPEC.md](M0-SPEC.md) for the detail behind what exists today.
+**Status: early.** Single-player is playable in a browser. There is no server yet, so
+there is nobody to play against. See [SPEC.md](SPEC.md) for the overall design,
+[M0-SPEC.md](M0-SPEC.md) for the simulation and [M1-SPEC.md](M1-SPEC.md) for the client.
 
-## What works
+## Playing it
 
 ```bash
-cargo test --workspace
+pnpm install
+pnpm --dir apps/web run dev
+```
+
+Sprint 40 and Blitz, with configurable handling, replays of every game, and local best
+times. Needs [wasm-pack](https://rustwasm.github.io/wasm-pack/) and the
+`wasm32-unknown-unknown` target.
+
+## What is where
+
+```
+crates/       the simulation and its tools — Rust
+apps/web/     the client — TypeScript                    <- the front end
+modes/        game modes, as files
+```
+
+```bash
+cargo test --workspace          # the simulation
+pnpm --dir apps/web test        # the client
 ```
 
 - **`crates/engine`** — the whole of the game's rules and none of its I/O. No filesystem,
@@ -19,7 +37,17 @@ cargo test --workspace
   garbage, and a state checksum.
 - **`crates/config`** — reads game modes from TOML, layers config from several sources,
   and emits the settings schema.
+- **`crates/replay`** — the replay format, shared by the client and the tools.
+- **`crates/client-wasm`** — the browser's view of the simulation: one call to advance it,
+  one block of memory to read it.
 - **`crates/replay-cli`** — runs, verifies and renders recorded games.
+- **`apps/web`** — the client: canvas, input, menus, settings, replays. This is the front
+  end, and the only TypeScript in the project. See [its README](apps/web/README.md) for
+  the layout and what is meant to be tuned.
+
+The client renders the game and reports which buttons are held. It decides nothing about
+the game itself — no shapes, no rotation, no timing, no scoring. That boundary is what
+lets the same simulation run on a server later without the two disagreeing.
 
 ## Determinism
 

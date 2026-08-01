@@ -5,6 +5,7 @@
  * together would make the game speed depend on the display.
  */
 
+import { Sound } from "./audio";
 import { Clock } from "./clock";
 import { Input, attach, keymap } from "./input";
 import { MODES, type Mode, goalReached, isPlayable, mode, remaining } from "./modes";
@@ -95,6 +96,14 @@ const shapes = JSON.parse(pieceShapes()) as Shapes;
 const clock = new Clock();
 const input = new Input(keymap(settings.keybinds, buttonBits));
 attach(window, input);
+
+const sound = new Sound();
+sound.setVolume(Number(settings.cosmetic.effects_volume ?? 70));
+
+// Browsers only allow audio to start from a real interaction.
+for (const event of ["keydown", "pointerdown"]) {
+  window.addEventListener(event, () => sound.resume(), { once: true });
+}
 
 showNotes(stored.notes);
 
@@ -209,7 +218,9 @@ function step(ticks: number): void {
       // Sampled per tick, not per frame: a catch-up run must not replay one press.
       game.tick(input.consume());
       const frame = read();
-      if (frame && (frame.over || (current && goalReached(current.goal, frame)))) {
+      if (!frame) continue;
+      sound.play(frame.events, frame.linesCleared);
+      if (frame.over || (current && goalReached(current.goal, frame))) {
         finish(frame);
         break;
       }
@@ -425,6 +436,7 @@ function applySettings(next: Settings): void {
   settings = save(window.localStorage, codec, next);
   theme = skin(String(settings.cosmetic.skin));
   input.rebind(keymap(settings.keybinds, buttonBits));
+  sound.setVolume(Number(settings.cosmetic.effects_volume ?? 70));
   draw();
 }
 

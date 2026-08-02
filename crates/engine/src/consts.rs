@@ -35,7 +35,7 @@ pub const SUBTICK: u32 = 256;
 ///
 /// A bump invalidates stored replays for *verification*. They stay playable and are
 /// marked unverifiable rather than being silently re-verified under the new rules.
-pub const ENGINE_VER: u32 = 1;
+pub const ENGINE_VER: u32 = 2;
 
 /// Color index reserved for empty cells in the render channel.
 pub const COLOR_EMPTY: u8 = 0;

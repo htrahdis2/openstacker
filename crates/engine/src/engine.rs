@@ -619,20 +619,22 @@ impl Engine {
                 out.events |= Events::PERFECT_CLEAR;
             }
 
-            let b2b_active = self.b2b > 0;
+            // How long the chain was before this clear. Scoring reads it, so it is taken
+            // before the chain is extended.
+            let b2b_chain = self.b2b;
             if continues_b2b(lines, spin) {
                 self.b2b = self.b2b.saturating_add(1);
-                if b2b_active {
+                if b2b_chain > 0 {
                     out.events |= Events::B2B_CONTINUED;
                 }
             } else {
-                if b2b_active {
+                if b2b_chain > 0 {
                     out.events |= Events::B2B_BROKEN;
                 }
                 self.b2b = 0;
             }
 
-            let raw = attack_for(lines, spin, perfect, b2b_active, self.combo, &self.config);
+            let raw = attack_for(lines, spin, perfect, b2b_chain, self.combo, &self.config);
             self.combo = self.combo.saturating_add(1);
             self.stats.max_combo = self.stats.max_combo.max(self.combo);
             self.stats.max_b2b = self.stats.max_b2b.max(self.b2b);

@@ -10,11 +10,23 @@
           "quad": 4,
           "single": 0,
           "spin_double": 4,
+          "spin_quad": 8,
           "spin_single": 2,
           "spin_triple": 6,
           "triple": 2
         },
-        "b2b_bonus": 1,
+        "b2b_table": [
+          0,
+          1,
+          1,
+          1,
+          2,
+          2,
+          2,
+          3,
+          3,
+          4
+        ],
         "clear_delay_ms": 0,
         "combo_table": [
           0,
@@ -82,11 +94,23 @@
           "quad": 4,
           "single": 0,
           "spin_double": 4,
+          "spin_quad": 8,
           "spin_single": 2,
           "spin_triple": 6,
           "triple": 2
         },
-        "b2b_bonus": 1,
+        "b2b_table": [
+          0,
+          1,
+          1,
+          1,
+          2,
+          2,
+          2,
+          3,
+          3,
+          4
+        ],
         "clear_delay_ms": 0,
         "combo_table": [
           0,
@@ -137,11 +161,23 @@
           "quad": 4,
           "single": 0,
           "spin_double": 4,
+          "spin_quad": 8,
           "spin_single": 2,
           "spin_triple": 6,
           "triple": 2
         },
-        "b2b_bonus": 1,
+        "b2b_table": [
+          0,
+          1,
+          1,
+          1,
+          2,
+          2,
+          2,
+          3,
+          3,
+          4
+        ],
         "clear_delay_ms": 0,
         "combo_table": [
           0,

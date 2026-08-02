@@ -18,6 +18,9 @@ pub const MAX_GRAVITY_STAGES: usize = 16;
 /// Longest combo the table can reward. Beyond this the last entry repeats.
 pub const COMBO_TABLE_LEN: usize = 21;
 
+/// Longest back-to-back chain the table can reward. Beyond this the last entry repeats.
+pub const B2B_TABLE_LEN: usize = 21;
+
 /// How fast pieces fall, and whether that changes over time.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -140,6 +143,9 @@ pub struct AttackTable {
     pub spin_single: u8,
     pub spin_double: u8,
     pub spin_triple: u8,
+    /// Only reachable under a spin rule that recognises pieces other than the T, but a
+    /// mode that turns one on should not have its biggest clear score as a triple.
+    pub spin_quad: u8,
     pub perfect_clear: u8,
 }
 
@@ -155,6 +161,7 @@ impl Default for AttackTable {
             spin_single: 2,
             spin_double: 4,
             spin_triple: 6,
+            spin_quad: 8,
             perfect_clear: 10,
         }
     }
@@ -192,6 +199,7 @@ impl Tunable for AttackTable {
         attack("spin_single", "Spin single", 2),
         attack("spin_double", "Spin double", 4),
         attack("spin_triple", "Spin triple", 6),
+        attack("spin_quad", "Spin quad", 8),
         attack("perfect_clear", "Perfect clear", 10),
     ];
 
@@ -206,6 +214,7 @@ impl Tunable for AttackTable {
         self.spin_single = f("spin_single").clamp_u8(self.spin_single);
         self.spin_double = f("spin_double").clamp_u8(self.spin_double);
         self.spin_triple = f("spin_triple").clamp_u8(self.spin_triple);
+        self.spin_quad = f("spin_quad").clamp_u8(self.spin_quad);
         self.perfect_clear = f("perfect_clear").clamp_u8(self.perfect_clear);
     }
 }
@@ -278,7 +287,7 @@ pub struct MatchConfig {
     pub spin_detection: SpinRule,
     pub attack_table: AttackTable,
     pub combo_table: ArrayVec<u8, COMBO_TABLE_LEN>,
-    pub b2b_bonus: u8,
+    pub b2b_table: ArrayVec<u8, B2B_TABLE_LEN>,
 
     pub garbage_delay_ms: u16,
     pub garbage_cap: u8,
@@ -288,8 +297,18 @@ pub struct MatchConfig {
 /// Default combo rewards, indexed by combo count. Saturates at the last entry.
 fn default_combo_table() -> ArrayVec<u8, COMBO_TABLE_LEN> {
     let mut v = ArrayVec::new();
-    for n in [0u8, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5] {
-        v.push(n);
+    for n in COMBO_DEFAULT {
+        v.push(*n as u8);
+    }
+    v
+}
+
+/// Default back-to-back rewards, indexed by how long the chain already was. Index 0 is
+/// "no chain yet", which is why it is worth nothing.
+fn default_b2b_table() -> ArrayVec<u8, B2B_TABLE_LEN> {
+    let mut v = ArrayVec::new();
+    for n in B2B_DEFAULT {
+        v.push(*n as u8);
     }
     v
 }
@@ -308,7 +327,7 @@ impl Default for MatchConfig {
             spin_detection: SpinRule::ThreeCorner,
             attack_table: AttackTable::default(),
             combo_table: default_combo_table(),
-            b2b_bonus: 1,
+            b2b_table: default_b2b_table(),
             garbage_delay_ms: 1000,
             garbage_cap: 8,
             garbage_hole_repeat: true,
@@ -318,6 +337,11 @@ impl Default for MatchConfig {
 
 /// The reward for each combo length, as the descriptor declares it.
 const COMBO_DEFAULT: &[i64] = &[0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5];
+
+/// The reward for each back-to-back chain length. A long chain is worth more per clear
+/// than a short one, which is what makes keeping it alive a decision rather than a
+/// formality.
+const B2B_DEFAULT: &[i64] = &[0, 1, 1, 1, 2, 2, 2, 3, 3, 4];
 
 impl Tunable for MatchConfig {
     const NESTED: &'static [&'static str] = &["gravity", "attack_table"];
@@ -417,16 +441,17 @@ impl Tunable for MatchConfig {
             },
         },
         FieldDesc {
-            key: "b2b_bonus",
-            label: "Back-to-back bonus",
+            key: "b2b_table",
+            label: "Back-to-back rewards",
             help: "Extra rows sent for chaining hard clears without a plain clear in \
-                   between.",
+                   between, by how long the chain already was. A chain longer than the \
+                   table keeps the last entry.",
             group: SCORING,
-            kind: FieldKind::Int {
+            kind: FieldKind::IntList {
                 min: 0,
-                max: 20,
-                default: 1,
-                step: 1,
+                max: MAX_ATTACK,
+                max_len: B2B_TABLE_LEN,
+                default: B2B_DEFAULT,
                 unit: Unit::Rows,
             },
         },
@@ -488,7 +513,6 @@ impl Tunable for MatchConfig {
         self.clear_delay_ms = f("clear_delay_ms").clamp_u16(self.clear_delay_ms);
         self.spawn_delay_ms = f("spawn_delay_ms").clamp_u16(self.spawn_delay_ms);
         self.preview_len = f("preview_len").clamp_u8(self.preview_len);
-        self.b2b_bonus = f("b2b_bonus").clamp_u8(self.b2b_bonus);
         self.garbage_delay_ms = f("garbage_delay_ms").clamp_u16(self.garbage_delay_ms);
         self.garbage_cap = f("garbage_cap").clamp_u8(self.garbage_cap);
 
@@ -501,6 +525,15 @@ impl Tunable for MatchConfig {
         for entry in self.combo_table.iter_mut() {
             *entry = combo.clamp_u8(*entry);
         }
+
+        if self.b2b_table.is_empty() {
+            self.b2b_table = default_b2b_table();
+        }
+        let b2b = f("b2b_table");
+        self.b2b_table.truncate(b2b.max_len());
+        for entry in self.b2b_table.iter_mut() {
+            *entry = b2b.clamp_u8(*entry);
+        }
     }
 }
 
@@ -512,6 +545,19 @@ impl MatchConfig {
         }
         let i = (combo as usize).min(self.combo_table.len() - 1);
         self.combo_table[i]
+    }
+
+    /// Back-to-back reward for a chain of a given length, saturating at the end of the
+    /// table.
+    ///
+    /// `chain` is how long the run already was before this clear, so 0 means this is the
+    /// first hard clear and there is no chain to reward yet.
+    pub fn b2b_bonus(&self, chain: u8) -> u8 {
+        if self.b2b_table.is_empty() {
+            return 0;
+        }
+        let i = (chain as usize).min(self.b2b_table.len() - 1);
+        self.b2b_table[i]
     }
 
     /// Lock delay in subticks.
@@ -584,7 +630,6 @@ mod tests {
         assert_eq!(int("clear_delay_ms"), d.clear_delay_ms as i64);
         assert_eq!(int("spawn_delay_ms"), d.spawn_delay_ms as i64);
         assert_eq!(int("preview_len"), d.preview_len as i64);
-        assert_eq!(int("b2b_bonus"), d.b2b_bonus as i64);
         assert_eq!(int("garbage_delay_ms"), d.garbage_delay_ms as i64);
         assert_eq!(int("garbage_cap"), d.garbage_cap as i64);
         match g("lock_reset_mode").kind {

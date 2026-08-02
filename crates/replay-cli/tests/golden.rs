@@ -98,7 +98,7 @@ const SCORING: &[Expect] = &[
     Expect {
         file: "b2b_chain.replay",
         lines: 9,
-        attack: 10,
+        attack: 9,
         events: Events::B2B_CONTINUED.union(Events::B2B_BROKEN),
         absent: Events::PERFECT_CLEAR,
     },

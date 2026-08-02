@@ -112,11 +112,15 @@ pub const fn continues_b2b(lines: u8, spin: Spin) -> bool {
 }
 
 /// Rows sent for a clear, before cancellation.
+///
+/// `b2b_chain` is how long the back-to-back run was *before* this clear. The bonus is
+/// paid only when this clear carries the chain on, so the plain clear that ends a run
+/// does not collect on a chain it just broke.
 pub fn attack_for(
     lines: u8,
     spin: Spin,
     perfect_clear: bool,
-    b2b_active: bool,
+    b2b_chain: u8,
     combo: u8,
     config: &MatchConfig,
 ) -> u8 {
@@ -127,7 +131,8 @@ pub fn attack_for(
     let base = match (spin, lines) {
         (Spin::Full, 1) => t.spin_single,
         (Spin::Full, 2) => t.spin_double,
-        (Spin::Full, n) if n >= 3 => t.spin_triple,
+        (Spin::Full, 3) => t.spin_triple,
+        (Spin::Full, n) if n >= 4 => t.spin_quad,
         (Spin::Mini, 1) => t.mini_spin_single,
         (Spin::Mini, n) if n >= 2 => t.mini_spin_double,
         (Spin::None, 1) => t.single,
@@ -139,8 +144,8 @@ pub fn attack_for(
 
     let mut total = base as u32;
     total += config.combo_bonus(combo) as u32;
-    if b2b_active {
-        total += config.b2b_bonus as u32;
+    if continues_b2b(lines, spin) {
+        total += config.b2b_bonus(b2b_chain) as u32;
     }
     if perfect_clear {
         total += t.perfect_clear as u32;
@@ -259,16 +264,16 @@ mod tests {
 
     #[test]
     fn clearing_nothing_sends_nothing() {
-        assert_eq!(attack_for(0, Spin::None, false, false, 0, &cfg()), 0);
+        assert_eq!(attack_for(0, Spin::None, false, 0, 0, &cfg()), 0);
     }
 
     #[test]
     fn plain_clears_follow_the_table() {
         let c = cfg();
-        assert_eq!(attack_for(1, Spin::None, false, false, 0, &c), 0);
-        assert_eq!(attack_for(2, Spin::None, false, false, 0, &c), 1);
-        assert_eq!(attack_for(3, Spin::None, false, false, 0, &c), 2);
-        assert_eq!(attack_for(4, Spin::None, false, false, 0, &c), 4);
+        assert_eq!(attack_for(1, Spin::None, false, 0, 0, &c), 0);
+        assert_eq!(attack_for(2, Spin::None, false, 0, 0, &c), 1);
+        assert_eq!(attack_for(3, Spin::None, false, 0, 0, &c), 2);
+        assert_eq!(attack_for(4, Spin::None, false, 0, 0, &c), 4);
     }
 
     #[test]
@@ -277,8 +282,8 @@ mod tests {
         // paying for itself.
         let c = cfg();
         for lines in 1..=3u8 {
-            let plain = attack_for(lines, Spin::None, false, false, 0, &c);
-            let spun = attack_for(lines, Spin::Full, false, false, 0, &c);
+            let plain = attack_for(lines, Spin::None, false, 0, 0, &c);
+            let spun = attack_for(lines, Spin::Full, false, 0, 0, &c);
             assert!(spun > plain, "{lines} rows: spin {spun} vs plain {plain}");
         }
     }
@@ -288,8 +293,8 @@ mod tests {
         let c = cfg();
         for lines in 1..=2u8 {
             assert!(
-                attack_for(lines, Spin::Full, false, false, 0, &c)
-                    > attack_for(lines, Spin::Mini, false, false, 0, &c)
+                attack_for(lines, Spin::Full, false, 0, 0, &c)
+                    > attack_for(lines, Spin::Mini, false, 0, 0, &c)
             );
         }
     }
@@ -297,26 +302,66 @@ mod tests {
     #[test]
     fn back_to_back_adds_its_bonus() {
         let c = cfg();
-        let without = attack_for(4, Spin::None, false, false, 0, &c);
-        let with = attack_for(4, Spin::None, false, true, 0, &c);
-        assert_eq!(with - without, c.b2b_bonus);
+        let without = attack_for(4, Spin::None, false, 0, 0, &c);
+        let with = attack_for(4, Spin::None, false, 1, 0, &c);
+        assert_eq!(with - without, c.b2b_bonus(1));
+    }
+
+    #[test]
+    fn a_longer_chain_pays_more_than_a_short_one() {
+        // The reason back-to-back is a table rather than one number: a chain that has
+        // been kept alive is worth more than one that just started.
+        let c = cfg();
+        let short = attack_for(4, Spin::None, false, 1, 0, &c);
+        let long = attack_for(4, Spin::None, false, 8, 0, &c);
+        assert!(long > short, "chain of 8 {long} vs chain of 1 {short}");
+    }
+
+    #[test]
+    fn the_chain_reward_saturates_past_the_end_of_the_table() {
+        let c = cfg();
+        let last = *c.b2b_table.last().unwrap();
+        assert_eq!(c.b2b_bonus(u8::MAX), last);
+        assert_eq!(c.b2b_bonus(0), 0, "no chain yet is worth nothing");
+    }
+
+    #[test]
+    fn the_clear_that_breaks_a_chain_does_not_collect_on_it() {
+        // A plain double after a run of quads ends the run. Paying it the chain bonus
+        // would reward breaking the thing the bonus exists to encourage.
+        let c = cfg();
+        let breaking = attack_for(2, Spin::None, false, 5, 0, &c);
+        let no_chain = attack_for(2, Spin::None, false, 0, 0, &c);
+        assert_eq!(breaking, no_chain);
+    }
+
+    #[test]
+    fn a_spin_quad_is_not_scored_as_a_spin_triple() {
+        // Only reachable under all-spin rules, where it would otherwise be the biggest
+        // clear in the game and worth less than the mode intends.
+        let c = cfg();
+        assert_eq!(
+            attack_for(4, Spin::Full, false, 0, 0, &c),
+            c.attack_table.spin_quad
+        );
+        assert!(c.attack_table.spin_quad > c.attack_table.spin_triple);
     }
 
     #[test]
     fn a_perfect_clear_adds_its_bonus() {
         let c = cfg();
-        let without = attack_for(4, Spin::None, false, false, 0, &c);
-        let with = attack_for(4, Spin::None, true, false, 0, &c);
+        let without = attack_for(4, Spin::None, false, 0, 0, &c);
+        let with = attack_for(4, Spin::None, true, 0, 0, &c);
         assert_eq!(with - without, c.attack_table.perfect_clear);
     }
 
     #[test]
     fn combo_adds_to_the_total_and_never_indexes_past_the_table() {
         let c = cfg();
-        let base = attack_for(2, Spin::None, false, false, 0, &c);
-        assert!(attack_for(2, Spin::None, false, false, 5, &c) > base);
+        let base = attack_for(2, Spin::None, false, 0, 0, &c);
+        assert!(attack_for(2, Spin::None, false, 0, 5, &c) > base);
         // Far past the end of the table: must saturate rather than panic.
-        let _ = attack_for(2, Spin::None, false, false, u8::MAX, &c);
+        let _ = attack_for(2, Spin::None, false, 0, u8::MAX, &c);
     }
 
     #[test]
@@ -332,12 +377,11 @@ mod tests {
                 perfect_clear: 40,
                 ..Default::default()
             },
-            b2b_bonus: 20,
             combo_table,
             ..Default::default()
         };
         // 40 + 255 + 20 + 40 overflows a u8 several times over.
-        assert_eq!(attack_for(4, Spin::None, true, true, 0, &c), u8::MAX);
+        assert_eq!(attack_for(4, Spin::None, true, 1, 0, &c), u8::MAX);
     }
 
     #[test]
@@ -345,7 +389,7 @@ mod tests {
         // If a normal quad were already saturating, the cap would be silently flattening
         // real differences in attack rather than guarding an edge case.
         let c = cfg();
-        assert!(attack_for(4, Spin::Full, true, true, 12, &c) < u8::MAX);
+        assert!(attack_for(4, Spin::Full, true, 1, 12, &c) < u8::MAX);
     }
 
     #[test]

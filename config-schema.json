@@ -248,15 +248,26 @@
           ]
         },
         {
-          "default": 1,
+          "default": [
+            0,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+            3,
+            3,
+            4
+          ],
           "group": "match.scoring",
-          "help": "Extra rows sent for chaining hard clears without a plain clear in between.",
-          "key": "b2b_bonus",
-          "label": "Back-to-back bonus",
-          "max": 20,
+          "help": "Extra rows sent for chaining hard clears without a plain clear in between, by how long the chain already was. A chain longer than the table keeps the last entry.",
+          "key": "b2b_table",
+          "label": "Back-to-back rewards",
+          "max": 40,
+          "maxLen": 21,
           "min": 0,
-          "step": 1,
-          "type": "int",
+          "type": "intList",
           "unit": "rows"
         },
         {
@@ -430,6 +441,18 @@
           "help": "Rows sent to the opponent for this clear.",
           "key": "spin_triple",
           "label": "Spin triple",
+          "max": 40,
+          "min": 0,
+          "step": 1,
+          "type": "int",
+          "unit": "rows"
+        },
+        {
+          "default": 8,
+          "group": "match.attack",
+          "help": "Rows sent to the opponent for this clear.",
+          "key": "spin_quad",
+          "label": "Spin quad",
           "max": 40,
           "min": 0,
           "step": 1,

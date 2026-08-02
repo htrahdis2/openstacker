@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "engine_ver": 1,
+  "engine_ver": 2,
   "seed": 8,
   "config": {
     "gravity": {
@@ -25,6 +25,7 @@
       "spin_single": 2,
       "spin_double": 4,
       "spin_triple": 6,
+      "spin_quad": 8,
       "perfect_clear": 10
     },
     "combo_table": [
@@ -42,7 +43,18 @@
       4,
       5
     ],
-    "b2b_bonus": 1,
+    "b2b_table": [
+      0,
+      1,
+      1,
+      1,
+      2,
+      2,
+      2,
+      3,
+      3,
+      4
+    ],
     "garbage_delay_ms": 1000,
     "garbage_cap": 8,
     "garbage_hole_repeat": true

@@ -8,6 +8,7 @@
 //! always available and read nothing from disk, so a client can share this crate's
 //! validation rules without also carrying a TOML parser.
 
+pub mod emit;
 pub mod resolve;
 pub mod schema;
 pub mod settings;
@@ -18,6 +19,7 @@ pub mod error;
 #[cfg(feature = "files")]
 pub mod mode;
 
+pub use emit::config_toml;
 pub use resolve::{HostPolicy, Layer, Resolved, resolve};
 pub use schema::{schema, schema_json};
 pub use settings::{Note, SETTINGS_VERSION, Settings};

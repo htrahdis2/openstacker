@@ -18,7 +18,7 @@
 //! that could not be carried forward is reported back as a note the client can show.
 
 use engine::config::desc::Tunable;
-use engine::{Cosmetic, Handling, Keybinds};
+use engine::{Cosmetic, Handling, Keybinds, MatchConfig};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -27,7 +27,7 @@ use serde_json::Value;
 /// Bumped whenever a stored setting changes shape in a way that needs converting, not
 /// merely when one is added or removed. Adding and removing are already handled by
 /// defaulting and ignoring.
-pub const SETTINGS_VERSION: u16 = 1;
+pub const SETTINGS_VERSION: u16 = 2;
 
 /// Everything a player has chosen.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,6 +37,13 @@ pub struct Settings {
     pub handling: Handling,
     pub keybinds: Keybinds,
     pub cosmetic: Cosmetic,
+    /// Match rules the player has pinned for their own games, overriding the mode's.
+    ///
+    /// Absent until they tune something, which is the normal state: a mode's rules are
+    /// the rules. Applied through the same host-policy layer a server will use, so
+    /// tuning locally and being handed rules remotely are the same mechanism.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub house_rules: Option<MatchConfig>,
 }
 
 impl Default for Settings {
@@ -46,6 +53,7 @@ impl Default for Settings {
             handling: Handling::default(),
             keybinds: Keybinds::default(),
             cosmetic: Cosmetic::default(),
+            house_rules: None,
         }
     }
 }
@@ -145,11 +153,30 @@ impl Settings {
         let keybinds = section(&root, "keybinds", &mut notes);
         let cosmetic = section(&root, "cosmetic", &mut notes);
 
+        // House rules are read whole or not at all: half a set of rules is not a set of
+        // rules, and defaulting the missing half would silently play a different game.
+        let house_rules = match root
+            .get("house_rules")
+            .filter(|v| !v.is_null())
+            .map(|v| serde_json::from_value::<MatchConfig>(v.clone()))
+        {
+            Some(Ok(rules)) => Some(rules),
+            Some(Err(e)) => {
+                notes.push(Note::SectionReset {
+                    section: "match rules",
+                    reason: e.to_string(),
+                });
+                None
+            }
+            None => None,
+        };
+
         let mut settings = Settings {
             version: SETTINGS_VERSION,
             handling,
             keybinds,
             cosmetic,
+            house_rules,
         };
 
         // Bounds are this build's, not the file's, so a value from a build with wider
@@ -157,6 +184,9 @@ impl Settings {
         let before = settings.clone();
         settings.handling.clamp();
         settings.cosmetic.clamp();
+        if let Some(rules) = settings.house_rules.as_mut() {
+            rules.clamp();
+        }
         if settings.handling != before.handling {
             notes.push(Note::Clamped {
                 section: "handling",
@@ -208,6 +238,9 @@ fn migrate(root: &mut Value, from: u16) {
             // 0 predates the version field. Nothing about the layout differed, so there
             // is nothing to convert; the walk simply moves it forward.
             0 => {}
+            // 1 had no house rules. Absent is the correct reading of a file that
+            // predates them: the mode's rules were the only rules.
+            1 => {}
             _ => break,
         }
         version += 1;
@@ -242,8 +275,8 @@ mod tests {
     #[test]
     fn a_setting_added_since_the_file_was_written_takes_its_default() {
         // The common case: the game gained an option and the player has not seen it yet.
-        let old = r#"{"version":1,"handling":{"das_ms":83}}"#;
-        let (s, notes) = Settings::from_json(old);
+        let old = format!(r#"{{"version":{SETTINGS_VERSION},"handling":{{"das_ms":83}}}}"#);
+        let (s, notes) = Settings::from_json(&old);
         assert_eq!(s.handling.das_ms, 83, "the chosen value must survive");
         assert_eq!(s.handling.arr_ms, Handling::default().arr_ms);
         assert!(notes.is_empty(), "{notes:?}");
@@ -253,17 +286,59 @@ mod tests {
     fn a_setting_removed_since_the_file_was_written_costs_nothing_else() {
         // The case that used to wipe everything. One obsolete key must not take the
         // player's whole configuration with it.
-        let old = r#"{
-            "version": 1,
-            "handling": {"das_ms": 83, "dcd_frames": 3, "some_removed_option": true},
-            "keybinds": {"move_left": "KeyA", "legacy_bind": "KeyQ"},
-            "cosmetic": {"ghost_opacity": 12, "old_toggle": false}
-        }"#;
-        let (s, notes) = Settings::from_json(old);
+        let old = format!(
+            r#"{{
+            "version": {SETTINGS_VERSION},
+            "handling": {{"das_ms": 83, "dcd_frames": 3, "some_removed_option": true}},
+            "keybinds": {{"move_left": "KeyA", "legacy_bind": "KeyQ"}},
+            "cosmetic": {{"ghost_opacity": 12, "old_toggle": false}}
+        }}"#
+        );
+        let (s, notes) = Settings::from_json(&old);
         assert_eq!(s.handling.das_ms, 83);
         assert_eq!(s.keybinds.move_left.as_str(), "KeyA");
         assert_eq!(s.cosmetic.ghost_opacity, 12);
         assert!(notes.is_empty(), "{notes:?}");
+    }
+
+    #[test]
+    fn a_file_from_before_house_rules_reads_as_having_none() {
+        // Which is the correct reading: before the tuner existed, the mode's rules were
+        // the only rules there were.
+        let old = r#"{"version":1,"handling":{"das_ms":83}}"#;
+        let (s, notes) = Settings::from_json(old);
+        assert!(s.house_rules.is_none());
+        assert_eq!(s.handling.das_ms, 83, "the rest must survive the migration");
+        assert!(matches!(notes.as_slice(), [Note::Migrated { from: 1, .. }]));
+    }
+
+    #[test]
+    fn house_rules_are_brought_into_range_like_anything_else() {
+        let text =
+            format!(r#"{{"version":{SETTINGS_VERSION},"house_rules":{{"garbage_cap":200}}}}"#);
+        let (s, _) = Settings::from_json(&text);
+        let rules = s.house_rules.expect("house rules should be read");
+        assert!(rules.garbage_cap < 200, "{}", rules.garbage_cap);
+    }
+
+    #[test]
+    fn house_rules_that_cannot_be_read_are_dropped_rather_than_half_applied() {
+        // Half a set of rules is not a set of rules. Defaulting the missing half would
+        // quietly play a different game from the one the player tuned.
+        let text =
+            format!(r#"{{"version":{SETTINGS_VERSION},"house_rules":{{"gravity":"very fast"}}}}"#);
+        let (s, notes) = Settings::from_json(&text);
+        assert!(s.house_rules.is_none());
+        assert!(
+            notes.iter().any(|n| n.to_string().contains("match rules")),
+            "{notes:?}"
+        );
+    }
+
+    #[test]
+    fn settings_with_no_house_rules_do_not_write_the_key_at_all() {
+        // A null in storage would read as "tuned to nothing" rather than "not tuned".
+        assert!(!Settings::default().to_json().contains("house_rules"));
     }
 
     #[test]

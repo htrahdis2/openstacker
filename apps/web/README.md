@@ -31,6 +31,9 @@ already served by the wasm module for exactly this reason:
 | Whether a setting is in range | `normalizeSettings()` | clamp it here |
 | The frame equivalent of a duration | `centiframes(ms)` | multiply by 0.06 |
 | Where a field sits in the frame block | `frameLayout()` | hard-code offsets |
+| Which rules a game is played under | `resolveRules(mode, house)` | merge them here |
+| A tuned set of rules as a mode file | `rulesAsToml(rules, mode)` | write TOML by hand |
+| Rows a training opponent sends | the mode's `sparring` profile | invent a schedule |
 
 The one piece of timing the client owns is how many whole ticks are owed at a moment in
 time, in [`clock.ts`](src/clock.ts).
@@ -45,7 +48,7 @@ time, in [`clock.ts`](src/clock.ts).
 | [`src/modes.ts`](src/modes.ts) | Modes from `modes.generated.json`, and knowing when a run is finished |
 | [`src/audio.ts`](src/audio.ts) | Synthesized cues, driven by the tick's event bits |
 | [`src/render/board.ts`](src/render/board.ts) | The playfield |
-| [`src/render/hud.ts`](src/render/hud.ts) | Hold, next, and the run's numbers |
+| [`src/render/hud.ts`](src/render/hud.ts) | Hold, next, the run's numbers, and the incoming bar |
 | [`src/render/palette.ts`](src/render/palette.ts) | Skins |
 | [`src/render/piece.ts`](src/render/piece.ts) | Drawing a piece outside the board |
 | [`src/settings/`](src/settings) | The generated settings screen and where settings live |
@@ -70,6 +73,14 @@ the top of [`audio.ts`](src/audio.ts). `MAX_CATCHUP_TICKS` and `STALL_MS` in
 **Feel that is simulation.** DAS, ARR, soft drop, lock delay and the rest are engine
 settings. Change them in the settings screen, not in code. If a *bound* is wrong, that is
 `crates/engine/src/config/`, and the control follows automatically.
+
+**The versus numbers.** Attack, combo, back-to-back, garbage delay and the rest are match
+rules, and the settings screen edits them once you press *tune these*. They start as the
+mode's; tuning copies them into your own set, which overrides the mode through the same
+layer a server will use at M3. *Copy as TOML* gives you back only what you changed, ready
+to paste into a mode file. The bar's urgency threshold is `URGENT_TICKS` in
+[`hud.ts`](src/render/hud.ts) and how long a banner stays up is `BANNER_MS` in
+[`main.ts`](src/main.ts) — both cosmetic.
 
 **Screens.** [`index.html`](index.html) holds the markup; `main.ts` wires it. There is no
 UI framework — `SPEC.md` §4 says none until it hurts.

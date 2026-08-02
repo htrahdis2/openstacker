@@ -657,3 +657,32 @@ dd:last-of-type {
 .replay-list button:hover {
   border-color: var(--dim);
 }
+
+/* The line above the match rules: whose they are, and how to make them yours. */
+.settings-rules {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.settings-rules .settings-note {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.settings-rules button {
+  padding: 4px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.settings-rules button:hover {
+  border-color: #31c7ef;
+}

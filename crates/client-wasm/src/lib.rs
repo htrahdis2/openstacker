@@ -13,7 +13,7 @@ mod sparring;
 pub use frame::{FRAME_BYTES, Frame};
 pub use game::Game;
 
-use config::{Settings, Sparring};
+use config::{HostPolicy, Settings, Sparring, config_toml, resolve};
 use engine::config::desc::Tunable;
 use engine::{
     Action, Buttons, ENGINE_VER, Handling, MatchConfig, QuadKind, ms_to_subticks,
@@ -206,6 +206,56 @@ pub fn default_settings() -> String {
 #[wasm_bindgen]
 pub fn centiframes(ms: u32) -> u32 {
     subticks_to_centiframes(ms_to_subticks(ms))
+}
+
+/// The rules a game will actually be played under, and where they came from.
+///
+/// Resolution is `defaults <- mode <- host policy <- player`, and a player tuning their
+/// own local game is the host. Running it here rather than in the client means a server
+/// handing down rules at M3 goes through the same path, with the same precedence, rather
+/// than through a second one written in TypeScript.
+#[wasm_bindgen(js_name = resolveRules)]
+pub fn resolve_rules(mode_json: &str, house_json: Option<String>) -> Result<String, JsError> {
+    let mode: Option<MatchConfig> = match mode_json {
+        "" => None,
+        text => Some(serde_json::from_str(text).map_err(|e| JsError::new(&format!("mode: {e}")))?),
+    };
+    let policy = HostPolicy {
+        match_config: match house_json.as_deref() {
+            None | Some("") => None,
+            Some(text) => Some(
+                serde_json::from_str(text)
+                    .map_err(|e| JsError::new(&format!("house rules: {e}")))?,
+            ),
+        },
+        handling: None,
+    };
+    let resolved = resolve(mode.as_ref(), &policy, None);
+    Ok(serde_json::json!({
+        "config": resolved.match_config,
+        "layer": resolved.match_config_layer.locked_reason(),
+        "fromPlayer": policy_wins(&policy),
+    })
+    .to_string())
+}
+
+fn policy_wins(policy: &HostPolicy) -> bool {
+    policy.match_config.is_some()
+}
+
+/// A set of rules as the `[config]` block of a mode file, against the mode it came from.
+///
+/// The other half of tuning: numbers that cannot leave the browser are numbers that get
+/// lost. Only what was actually changed is printed.
+#[wasm_bindgen(js_name = rulesAsToml)]
+pub fn rules_as_toml(config_json: &str, mode_json: &str) -> Result<String, JsError> {
+    let config: MatchConfig =
+        serde_json::from_str(config_json).map_err(|e| JsError::new(&format!("rules: {e}")))?;
+    let against: Option<MatchConfig> = match mode_json {
+        "" => None,
+        text => Some(serde_json::from_str(text).map_err(|e| JsError::new(&format!("mode: {e}")))?),
+    };
+    Ok(config_toml(&config, against.as_ref()))
 }
 
 /// The rules version. A replay recorded under a different one cannot be re-verified.
@@ -573,6 +623,42 @@ mod tests {
         assert_eq!(v["bytes"], FRAME_BYTES);
         assert_eq!(v["board"]["visible"], 20);
         assert_eq!(v["flags"]["active"], 1);
+    }
+
+    #[test]
+    fn a_players_own_rules_win_over_the_modes() {
+        // The layer a server will use at M3, used by the player who is the host of their
+        // own local game. One resolution path, not two.
+        let mode = serde_json::json!({ "garbage_delay_ms": 900 }).to_string();
+        let house = serde_json::json!({ "garbage_delay_ms": 400 }).to_string();
+
+        let untouched: serde_json::Value =
+            serde_json::from_str(&resolve_rules(&mode, None).unwrap()).unwrap();
+        assert_eq!(untouched["config"]["garbage_delay_ms"], 900);
+        assert_eq!(untouched["layer"], "fixed by this mode");
+        assert_eq!(untouched["fromPlayer"], false);
+
+        let tuned: serde_json::Value =
+            serde_json::from_str(&resolve_rules(&mode, Some(house)).unwrap()).unwrap();
+        assert_eq!(tuned["config"]["garbage_delay_ms"], 400);
+        assert_eq!(tuned["fromPlayer"], true);
+    }
+
+    #[test]
+    fn tuned_rules_come_back_out_as_something_that_can_be_committed() {
+        let mode = serde_json::to_string(&MatchConfig::default()).unwrap();
+        let mut tuned = MatchConfig::default();
+        tuned.attack_table.quad = 6;
+        let text = rules_as_toml(&serde_json::to_string(&tuned).unwrap(), &mode).unwrap();
+        assert!(text.contains("[config.attack_table]"), "{text}");
+        assert!(text.contains("quad = 6"), "{text}");
+        assert!(!text.contains("lock_delay_ms"), "{text}");
+    }
+
+    #[test]
+    fn rules_that_match_the_mode_have_nothing_to_paste() {
+        let mode = serde_json::to_string(&MatchConfig::default()).unwrap();
+        assert!(rules_as_toml(&mode, &mode).unwrap().is_empty());
     }
 
     #[test]

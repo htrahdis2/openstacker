@@ -39,7 +39,11 @@ fn every_shipped_mode_loads() {
         }
     };
     let ids: Vec<&str> = modes.iter().map(|m| m.id.as_str()).collect();
-    assert_eq!(ids, ["blitz", "sprint40", "versus"], "sorted by id");
+    assert_eq!(
+        ids,
+        ["blitz", "sprint40", "versus", "versus_classic"],
+        "sorted by id"
+    );
 }
 
 #[test]
@@ -398,7 +402,11 @@ fn the_generated_json_carries_every_shipped_mode() {
     let modes = v["modes"].as_array().unwrap();
 
     let ids: Vec<&str> = modes.iter().map(|m| m["id"].as_str().unwrap()).collect();
-    assert_eq!(ids, ["blitz", "sprint40", "versus"], "sorted by id");
+    assert_eq!(
+        ids,
+        ["blitz", "sprint40", "versus", "versus_classic"],
+        "sorted by id"
+    );
 
     let sprint = modes.iter().find(|m| m["id"] == "sprint40").unwrap();
     assert_eq!(sprint["goal"]["type"], "lines");

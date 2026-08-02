@@ -16,11 +16,21 @@ export interface Handling {
   [key: string]: number | string | boolean;
 }
 
+/** Match rules, as the schema describes them. Opaque here on purpose. */
+export type Rules = Record<string, unknown>;
+
 export interface Settings {
   version: number;
   handling: Handling;
   keybinds: Record<string, string>;
   cosmetic: Record<string, number | string | boolean>;
+  /**
+   * Rules the player has pinned for their own games, overriding the mode's.
+   *
+   * Absent until they tune something. Applied through the same layer a server will use,
+   * so a local game and a hosted one resolve their rules the same way.
+   */
+  house_rules?: Rules;
 }
 
 /** The engine-side settings rules, injected so this module can be tested without wasm. */

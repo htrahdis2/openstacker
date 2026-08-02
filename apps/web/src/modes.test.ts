@@ -13,7 +13,7 @@ import {
 
 describe("the shipped modes", () => {
   it("are the ones on disk", () => {
-    expect(MODES.map((m) => m.id)).toEqual(["blitz", "sprint40", "versus"]);
+    expect(MODES.map((m) => m.id)).toEqual(["blitz", "sprint40", "versus", "versus_classic"]);
   });
 
   it("carry the rules to play them under", () => {

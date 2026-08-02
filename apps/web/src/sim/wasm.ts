@@ -17,6 +17,8 @@ import init, {
   loadSettings,
   normalizeSettings,
   pieceShapes,
+  resolveRules,
+  rulesAsToml,
 } from "../wasm/client.js";
 import type { FrameLayout } from "./frame";
 
@@ -30,6 +32,8 @@ export {
   loadSettings,
   normalizeSettings,
   pieceShapes,
+  resolveRules,
+  rulesAsToml,
 };
 
 let memory: WebAssembly.Memory | null = null;

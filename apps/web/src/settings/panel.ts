@@ -8,7 +8,7 @@
 
 import { clampToList, controlFor, duplicateBindings, readout, snapToStep } from "./controls";
 import { SCHEMA, type Field, type Group, sections } from "./schema";
-import type { Settings } from "./store";
+import type { Rules, Settings } from "./store";
 
 export interface PanelOptions {
   settings: Settings;
@@ -17,17 +17,40 @@ export interface PanelOptions {
   onChange: (settings: Settings) => void;
   /** Groups that reach the simulation are frozen while a game is running. */
   locked: () => boolean;
+  /** Rules of the mode being tuned, which house rules start from and are compared to. */
+  modeRules: () => Rules | null;
+  /** Its name, so the player can see which mode they are tuning against. */
+  modeName: () => string | null;
+  /** Start tuning, seeded from the mode's rules. */
+  onTune: () => void;
+  /** Go back to playing the mode as written. */
+  onUntune: () => void;
+  /** The tuned rules as a mode file's `[config]` block. */
+  toToml: () => string;
 }
 
-/** Which stored section a schema group edits. */
-const SECTION_OF: Record<string, keyof Settings | null> = {
-  handling: "handling",
-  keybinds: "keybinds",
-  cosmetic: "cosmetic",
-  // Match rules and the attack table come from the mode being played, not the player.
-  match: null,
-  attack_table: null,
-};
+/**
+ * The object a schema group edits, or null when there is nothing to edit into.
+ *
+ * Match rules and the attack table edit the player's house rules, which exist only once
+ * they have chosen to tune something. Until then they are the mode's, and read-only.
+ */
+function editable(group: string, settings: Settings): Record<string, unknown> | null {
+  switch (group) {
+    case "handling":
+      return settings.handling;
+    case "keybinds":
+      return settings.keybinds;
+    case "cosmetic":
+      return settings.cosmetic;
+    case "match":
+      return (settings.house_rules as Record<string, unknown>) ?? null;
+    case "attack_table":
+      return (settings.house_rules?.attack_table as Record<string, unknown>) ?? null;
+    default:
+      return null;
+  }
+}
 
 export function buildPanel(root: HTMLElement, options: PanelOptions): void {
   root.innerHTML = "";
@@ -45,8 +68,11 @@ function groupElement(group: Group, options: PanelOptions): HTMLElement {
   heading.textContent = group.label;
   section.append(heading);
 
-  const owned = SECTION_OF[group.id] ?? null;
-  if (owned === null) {
+  const values = editable(group.id, options.settings);
+  const rules = group.id === "match" || group.id === "attack_table";
+  if (rules) {
+    section.append(rulesHeader(group, options));
+  } else if (values === null) {
     const note = document.createElement("p");
     note.className = "settings-note";
     note.textContent = "fixed by this mode";
@@ -60,16 +86,66 @@ function groupElement(group: Group, options: PanelOptions): HTMLElement {
       section.append(sub);
     }
     for (const field of block.fields) {
-      section.append(fieldElement(group, field, owned, options));
+      section.append(fieldElement(group, field, values, options));
     }
   }
   return section;
 }
 
+/**
+ * The line above the match rules: whose they are, and how to make them yours.
+ *
+ * A control a player can drag that silently does nothing is worse than a disabled one,
+ * so until they tune, these say who fixed them and stay locked.
+ */
+function rulesHeader(group: Group, options: PanelOptions): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "settings-rules";
+  const tuned = options.settings.house_rules !== undefined;
+
+  const mode = options.modeName();
+  const note = document.createElement("p");
+  note.className = "settings-note";
+  note.textContent = tuned
+    ? `your rules${mode ? `, from ${mode}` : ""}`
+    : `fixed by ${mode ?? "this mode"}`;
+  row.append(note);
+
+  if (group.id !== "match") return row;
+
+  if (!tuned) {
+    const tune = document.createElement("button");
+    tune.type = "button";
+    tune.textContent = "tune these";
+    tune.addEventListener("click", options.onTune);
+    row.append(tune);
+    return row;
+  }
+
+  const revert = document.createElement("button");
+  revert.type = "button";
+  revert.textContent = "back to the mode";
+  revert.addEventListener("click", options.onUntune);
+
+  // Tuning that cannot leave the browser is tuning that gets lost.
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.textContent = "copy as TOML";
+  copy.addEventListener("click", () => {
+    const text = options.toToml();
+    void navigator.clipboard?.writeText(text);
+    copy.textContent = text ? "copied" : "nothing changed";
+    setTimeout(() => (copy.textContent = "copy as TOML"), 1200);
+  });
+
+  row.append(revert, copy);
+  return row;
+}
+
 function fieldElement(
   group: Group,
   field: Field,
-  owned: keyof Settings | null,
+  values: Record<string, unknown> | null,
   options: PanelOptions,
 ): HTMLElement {
   const row = document.createElement("div");
@@ -81,18 +157,18 @@ function fieldElement(
   label.title = field.help;
   row.append(label);
 
-  const values = owned ? (options.settings[owned] as Record<string, unknown>) : null;
-  const value = values?.[field.key] ?? ("default" in field ? field.default : "");
+  const fallback = fromMode(group, field, options) ?? ("default" in field ? field.default : "");
+  const value = values?.[field.key] ?? fallback;
 
   const set = (next: unknown): void => {
-    if (!owned || !values) return;
+    if (!values) return;
     values[field.key] = next as never;
     options.onChange(options.settings);
     refreshWarnings(row.closest(".settings-panel") ?? row, options.settings);
   };
 
   const control = buildControl(field, value, set, options);
-  if (!owned || (group.affectsSimulation && options.locked())) {
+  if (!values || (group.affectsSimulation && options.locked())) {
     for (const input of control.querySelectorAll("input, select, button")) {
       (input as HTMLInputElement).disabled = true;
     }
@@ -107,6 +183,16 @@ function fieldElement(
     row.append(help);
   }
   return row;
+}
+
+/** What the mode being played sets a rule to, so a locked control shows the real value. */
+function fromMode(group: Group, field: Field, options: PanelOptions): unknown {
+  const rules = options.modeRules();
+  if (!rules) return undefined;
+  if (group.id === "attack_table") {
+    return (rules.attack_table as Record<string, unknown> | undefined)?.[field.key];
+  }
+  return group.id === "match" ? rules[field.key] : undefined;
 }
 
 function buildControl(

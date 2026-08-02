@@ -34,7 +34,7 @@ import {
   saveReplay,
 } from "./replays/store";
 import { buildPanel } from "./settings/panel";
-import { type Settings, deviceId, load, save } from "./settings/store";
+import { type Rules, type Settings, deviceId, load, save } from "./settings/store";
 import { type Frame, readFrame } from "./sim/frame";
 import {
   Game,
@@ -47,6 +47,8 @@ import {
   newSeed,
   normalizeSettings,
   pieceShapes,
+  resolveRules,
+  rulesAsToml,
   simLayout,
 } from "./sim/wasm";
 
@@ -148,6 +150,13 @@ let playback: Playback | null = null;
 
 let phase: Phase = "menu";
 let current: Mode | null = null;
+/**
+ * The mode the settings screen tunes.
+ *
+ * `current` is cleared on the way back to the menu, but the rules a player was just
+ * playing are the ones they want to change, so this outlives it.
+ */
+let tuning: Mode | null = MODES.find((m) => isPlayable(m.goal)) ?? null;
 let game: Game | null = null;
 let views: GameViews | null = null;
 let lastReplay: StoredReplay | null = null;
@@ -159,16 +168,17 @@ document.addEventListener("visibilitychange", () => {
 
 /** Rows the garbage bar is drawn full at, from the rules being played. */
 function barCapacity(mode: Mode | null): number {
-  const cap = Number(mode?.config.garbage_cap ?? 0);
+  const cap = Number(rulesFor(mode).garbage_cap ?? 0);
   return cap > 0 ? cap : 12;
 }
 
 function start(mode: Mode): void {
   playback = null;
   current = mode;
+  tuning = mode;
   game = new Game(
     newSeed(),
-    JSON.stringify(mode.config),
+    JSON.stringify(rulesFor(mode)),
     JSON.stringify(settings.handling),
     // The mode's training opponent, on modes that have one. What it sends is recorded,
     // so a sparring run replays like any other game.
@@ -476,6 +486,7 @@ function watch(stored: StoredReplay): void {
   const { seed, config, handling, buttons, garbage } = decode(stored.payload);
   playback = { buttons, at: 0, label: stored.mode, garbage };
   current = mode(stored.mode) ?? null;
+  tuning = current ?? tuning;
   // No opponent: the rows this game received are in the recording, and generating a
   // second set would play a different game.
   game = new Game(seed, config, handling);
@@ -559,6 +570,22 @@ function applySettings(next: Settings): void {
   draw();
 }
 
+/**
+ * The rules a game would be played under: the mode's, unless the player has tuned.
+ *
+ * Resolved by the simulation rather than merged here. A server hands rules down through
+ * the same layer at M3, and two ways of deciding whose rules win is one too many.
+ */
+function rulesFor(mode: Mode | null): Rules {
+  const resolved = JSON.parse(
+    resolveRules(
+      mode ? JSON.stringify(mode.config) : "",
+      settings.house_rules ? JSON.stringify(settings.house_rules) : undefined,
+    ),
+  ) as { config: Rules };
+  return resolved.config;
+}
+
 function openSettingsScreen(): void {
   buildPanel(settingsPanel, {
     settings,
@@ -566,6 +593,27 @@ function openSettingsScreen(): void {
     onChange: applySettings,
     // Handling is frozen at construction, so a change lands on the next game.
     locked: () => phase === "running",
+    modeRules: () => tuning?.config ?? null,
+    modeName: () => tuning?.name ?? null,
+    // Tuning starts from what is actually being played, not from defaults: editing
+    // should begin where the game is.
+    onTune: () => {
+      applySettings({ ...settings, house_rules: rulesFor(tuning) });
+      openSettingsScreen();
+    },
+    onUntune: () => {
+      const next = { ...settings };
+      delete next.house_rules;
+      applySettings(next);
+      openSettingsScreen();
+    },
+    toToml: () =>
+      settings.house_rules
+        ? rulesAsToml(
+            JSON.stringify(settings.house_rules),
+            tuning ? JSON.stringify(tuning.config) : "",
+          )
+        : "",
   });
   settingsScreen.hidden = false;
 }

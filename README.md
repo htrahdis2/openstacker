@@ -3,9 +3,10 @@
 An open-source competitive falling-block stacker. Rust simulation, self-hosted, no ads,
 no accounts required to play.
 
-**Status: early.** Single-player is playable in a browser. There is no server yet, so
-there is nobody to play against. See [SPEC.md](SPEC.md) for the overall design,
-[M0-SPEC.md](M0-SPEC.md) for the simulation and [M1-SPEC.md](M1-SPEC.md) for the client.
+**Status: early.** Playable in a browser, against a training opponent. There is no server
+yet, so there is nobody *real* to play against. See [SPEC.md](SPEC.md) for the overall
+design, [M0-SPEC.md](M0-SPEC.md) for the simulation, [M1-SPEC.md](M1-SPEC.md) for the
+client and [M2-SPEC.md](M2-SPEC.md) for the versus rules.
 
 ## Playing it
 
@@ -14,9 +15,13 @@ pnpm install
 pnpm --dir apps/web run dev
 ```
 
-Sprint 40 and Blitz, with configurable handling, replays of every game, and local best
-times. Needs [wasm-pack](https://rustwasm.github.io/wasm-pack/) and the
+Sprint 40, Blitz and Versus, with configurable handling, replays of every game, and local
+bests. Needs [wasm-pack](https://rustwasm.github.io/wasm-pack/) and the
 `wasm32-unknown-unknown` target.
+
+Versus sends you rows on a timer and you last as long as you can. Attack, combo,
+back-to-back and spins all count; a well-timed clear cancels what is coming instead of
+trading blows.
 
 ## What is where
 
@@ -94,6 +99,23 @@ Other commands:
 ```bash
 cargo run -p replay-cli --bin replay -- help
 ```
+
+## The numbers are meant to be moved
+
+Everything the attack model does is data: what each clear sends, what a combo adds, what
+a chain is worth, how long rows wait before landing. None of it is a constant in Rust.
+
+Three ways to change it, in order of how permanent you want to be:
+
+1. **The settings screen.** Match rules are the mode's until you press *tune these*, which
+   copies them and makes them yours. Play, adjust, play again.
+2. **Copy as TOML.** The tuner hands back a `[config]` block containing only what you
+   moved. Paste it into a mode file and it is a mode anyone can play.
+3. **A mode file.** `modes/versus.toml` is the default; `modes/versus_classic.toml` is the
+   same game with a flat back-to-back bonus, kept as something to tune against.
+
+None of this moves a checksum or the engine version: the rules a game was played under
+travel inside its recording, so a tuned run stays verifiable and can be handed to anyone.
 
 ## Game modes are files
 

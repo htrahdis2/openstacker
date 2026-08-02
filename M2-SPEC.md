@@ -78,6 +78,7 @@ TOML escape hatch.
 | 10 | Whether versus is playable in M2 | **Yes, against the sparring source.** `survival` becomes a goal the client can decide the end of: the run ends on topout. Two humans is M3. |
 | 11 | Frame block size | **Grows from 64 to 128 bytes.** Live combo, live B2B and per-batch incoming detail do not fit, and packing them into reserved bytes to avoid changing one constant is a false economy. |
 | 12 | Starting numbers | **Close to today's table**, which already matches modern practice, plus escalating back-to-back. Stated in §13 as a starting point for playtest, not as settled. |
+| 13 | Who pays the chain bonus | **Only a clear that carries the chain on.** Found while making §5.3's table: the flat bonus was being paid by the plain clear that *broke* a run, rewarding the thing the bonus exists to discourage. Fixed inside the same `ENGINE_VER` bump, which is why `b2b_chain.replay` claims 9 rather than 10. |
 
 ---
 

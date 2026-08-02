@@ -74,6 +74,20 @@ fn describe(f: &FieldDesc) -> Value {
             m.insert("type".into(), json!("bool"));
             m.insert("default".into(), json!(default));
         }
+        FieldKind::IntList {
+            min,
+            max,
+            max_len,
+            default,
+            unit,
+        } => {
+            m.insert("type".into(), json!("intList"));
+            m.insert("min".into(), json!(min));
+            m.insert("max".into(), json!(max));
+            m.insert("maxLen".into(), json!(max_len));
+            m.insert("default".into(), json!(default));
+            m.insert("unit".into(), json!(unit.suffix()));
+        }
         FieldKind::Enum { variants, default } => {
             // A binding has no fixed set of values, since a key name is whatever the
             // platform calls it. The client renders those as a key-capture control.
@@ -203,7 +217,23 @@ mod tests {
             .iter()
             .map(|v| v.as_str().unwrap())
             .collect();
-        assert_eq!(nested, ["gravity", "attack_table", "combo_table"]);
+        // The combo table used to be here. It is a described field now, so a client can
+        // render it rather than skip it.
+        assert_eq!(nested, ["gravity", "attack_table"]);
+    }
+
+    #[test]
+    fn a_table_of_numbers_carries_its_bounds_and_its_length_cap() {
+        let combo = fields_of("match")
+            .into_iter()
+            .find(|f| f["key"] == "combo_table")
+            .expect("the combo table should be a described setting");
+        assert_eq!(combo["type"], "intList");
+        assert_eq!(combo["min"], 0);
+        assert!(combo["max"].as_i64().unwrap() > 0);
+        assert!(combo["maxLen"].as_u64().unwrap() >= 13);
+        assert_eq!(combo["default"][2], 1);
+        assert_eq!(combo["unit"], "rows");
     }
 
     #[test]

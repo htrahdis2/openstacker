@@ -316,8 +316,11 @@ impl Default for MatchConfig {
     }
 }
 
+/// The reward for each combo length, as the descriptor declares it.
+const COMBO_DEFAULT: &[i64] = &[0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5];
+
 impl Tunable for MatchConfig {
-    const NESTED: &'static [&'static str] = &["gravity", "attack_table", "combo_table"];
+    const NESTED: &'static [&'static str] = &["gravity", "attack_table"];
 
     const FIELDS: &'static [FieldDesc] = &[
         FieldDesc {
@@ -462,6 +465,20 @@ impl Tunable for MatchConfig {
             group: GARBAGE,
             kind: FieldKind::Bool { default: true },
         },
+        FieldDesc {
+            key: "combo_table",
+            label: "Combo rewards",
+            help: "Extra rows sent for each clear in a row, by how long the run is. \
+                   A run longer than the table keeps the last entry.",
+            group: SCORING,
+            kind: FieldKind::IntList {
+                min: 0,
+                max: MAX_ATTACK,
+                max_len: COMBO_TABLE_LEN,
+                default: COMBO_DEFAULT,
+                unit: Unit::Rows,
+            },
+        },
     ];
 
     fn clamp(&mut self) {
@@ -478,6 +495,11 @@ impl Tunable for MatchConfig {
         // A combo table must never be empty: scoring indexes into it on every clear.
         if self.combo_table.is_empty() {
             self.combo_table = default_combo_table();
+        }
+        let combo = f("combo_table");
+        self.combo_table.truncate(combo.max_len());
+        for entry in self.combo_table.iter_mut() {
+            *entry = combo.clamp_u8(*entry);
         }
     }
 }
@@ -614,6 +636,50 @@ mod tests {
         };
         c.clamp();
         assert!(!c.combo_table.is_empty());
+    }
+
+    #[test]
+    fn the_combo_table_describes_itself() {
+        // It used to be nested, which meant no bounds, no validation and no control.
+        let f = field(MatchConfig::FIELDS, "combo_table");
+        match f.kind {
+            FieldKind::IntList {
+                max_len, default, ..
+            } => {
+                assert_eq!(max_len, COMBO_TABLE_LEN);
+                let d = MatchConfig::default();
+                let declared: Vec<u8> = default.iter().map(|v| *v as u8).collect();
+                assert_eq!(declared, d.combo_table.to_vec());
+            }
+            _ => panic!("the combo table should be a list field"),
+        }
+    }
+
+    #[test]
+    fn an_out_of_range_combo_entry_is_clamped_rather_than_rejected() {
+        let mut table = ArrayVec::new();
+        table.push(0);
+        table.push(u8::MAX);
+        let mut c = MatchConfig {
+            combo_table: table,
+            ..Default::default()
+        };
+        c.clamp();
+        assert_eq!(c.combo_table[1] as i64, MAX_ATTACK);
+    }
+
+    #[test]
+    fn a_combo_table_past_its_cap_is_truncated() {
+        let mut table = ArrayVec::new();
+        for _ in 0..COMBO_TABLE_LEN {
+            table.push(1);
+        }
+        let mut c = MatchConfig {
+            combo_table: table,
+            ..Default::default()
+        };
+        c.clamp();
+        assert!(c.combo_table.len() <= COMBO_TABLE_LEN);
     }
 
     #[test]

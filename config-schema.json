@@ -290,14 +290,39 @@
           "key": "garbage_hole_repeat",
           "label": "Repeat garbage hole",
           "type": "bool"
+        },
+        {
+          "default": [
+            0,
+            0,
+            1,
+            1,
+            1,
+            2,
+            2,
+            3,
+            3,
+            4,
+            4,
+            4,
+            5
+          ],
+          "group": "match.scoring",
+          "help": "Extra rows sent for each clear in a row, by how long the run is. A run longer than the table keeps the last entry.",
+          "key": "combo_table",
+          "label": "Combo rewards",
+          "max": 40,
+          "maxLen": 21,
+          "min": 0,
+          "type": "intList",
+          "unit": "rows"
         }
       ],
       "id": "match",
       "label": "Match rules",
       "nested": [
         "gravity",
-        "attack_table",
-        "combo_table"
+        "attack_table"
       ]
     },
     {

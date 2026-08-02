@@ -59,6 +59,17 @@ pub enum FieldKind {
         variants: &'static [EnumVariant],
         default: &'static str,
     },
+    /// A table of numbers, such as the reward for a combo of a given length.
+    ///
+    /// Every entry shares one set of bounds, and the list has a length cap. A shorter
+    /// list is legal: scoring saturates at the last entry rather than indexing past it.
+    IntList {
+        min: i64,
+        max: i64,
+        max_len: usize,
+        default: &'static [i64],
+        unit: Unit,
+    },
 }
 
 impl FieldKind {
@@ -69,6 +80,25 @@ impl FieldKind {
                 min, max, default, ..
             } => *min <= *default && *default <= *max,
             FieldKind::Bool { .. } => true,
+            FieldKind::IntList {
+                min,
+                max,
+                max_len,
+                default,
+                ..
+            } => {
+                if default.len() > *max_len {
+                    return false;
+                }
+                let mut i = 0;
+                while i < default.len() {
+                    if default[i] < *min || default[i] > *max {
+                        return false;
+                    }
+                    i += 1;
+                }
+                true
+            }
             FieldKind::Enum { variants, default } => {
                 let mut i = 0;
                 while i < variants.len() {
@@ -112,10 +142,11 @@ pub struct FieldDesc {
 }
 
 impl FieldDesc {
-    /// Clamp a value to this field's declared range. Non-`Int` fields pass through.
+    /// Clamp a value to this field's declared range. For a list field this clamps one
+    /// entry, since every entry shares the same bounds. Other kinds pass through.
     pub const fn clamp_i64(&self, v: i64) -> i64 {
         match self.kind {
-            FieldKind::Int { min, max, .. } => {
+            FieldKind::Int { min, max, .. } | FieldKind::IntList { min, max, .. } => {
                 if v < min {
                     min
                 } else if v > max {
@@ -125,6 +156,14 @@ impl FieldDesc {
                 }
             }
             _ => v,
+        }
+    }
+
+    /// Longest list this field accepts, or 0 if it is not a list.
+    pub const fn max_len(&self) -> usize {
+        match self.kind {
+            FieldKind::IntList { max_len, .. } => max_len,
+            _ => 0,
         }
     }
 
@@ -290,6 +329,64 @@ mod tests {
             unit: Unit::None,
         };
         assert!(!bad.default_is_in_range());
+    }
+
+    #[test]
+    fn a_list_field_clamps_one_entry_at_a_time() {
+        // Every entry shares the field's bounds, so clamping is per entry rather than
+        // per list.
+        const LIST: &[FieldDesc] = &[FieldDesc {
+            key: "combo_table",
+            label: "Combo",
+            help: "",
+            group: "scoring",
+            kind: FieldKind::IntList {
+                min: 0,
+                max: 9,
+                max_len: 4,
+                default: &[0, 1, 2],
+                unit: Unit::Rows,
+            },
+        }];
+        let f = field(LIST, "combo_table");
+        assert_eq!(f.clamp_i64(-1), 0);
+        assert_eq!(f.clamp_i64(50), 9);
+        assert_eq!(f.clamp_u8(3), 3);
+        assert_eq!(f.max_len(), 4);
+        assert!(f.kind.default_is_in_range());
+    }
+
+    #[test]
+    fn a_list_default_outside_its_own_bounds_is_detected() {
+        assert!(
+            !FieldKind::IntList {
+                min: 0,
+                max: 3,
+                max_len: 8,
+                default: &[0, 9],
+                unit: Unit::None,
+            }
+            .default_is_in_range()
+        );
+    }
+
+    #[test]
+    fn a_list_default_longer_than_its_cap_is_detected() {
+        assert!(
+            !FieldKind::IntList {
+                min: 0,
+                max: 9,
+                max_len: 2,
+                default: &[1, 1, 1],
+                unit: Unit::None,
+            }
+            .default_is_in_range()
+        );
+    }
+
+    #[test]
+    fn a_field_that_is_not_a_list_has_no_length_cap() {
+        assert_eq!(field(SAMPLE, "das_ms").max_len(), 0);
     }
 
     #[test]

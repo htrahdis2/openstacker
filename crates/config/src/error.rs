@@ -78,6 +78,17 @@ pub enum ConfigError {
     #[error("{path}: `{key}` is required")]
     MissingKey { path: PathBuf, key: String },
 
+    #[error("{path}: `{key}` has to be a list of whole numbers, like [0, 1, 1, 2]")]
+    NotAList { path: PathBuf, key: String },
+
+    #[error("{path}: `{key}` has {len} entries, but at most {max} are used")]
+    ListTooLong {
+        path: PathBuf,
+        key: String,
+        len: usize,
+        max: usize,
+    },
+
     #[error("two modes share the id `{id}`: {first} and {second}")]
     DuplicateId {
         id: String,
@@ -99,7 +110,9 @@ impl ConfigError {
             | ConfigError::OutOfRange { path, .. }
             | ConfigError::UnknownVariant { path, .. }
             | ConfigError::IdMismatch { path, .. }
-            | ConfigError::MissingKey { path, .. } => Some(path),
+            | ConfigError::MissingKey { path, .. }
+            | ConfigError::NotAList { path, .. }
+            | ConfigError::ListTooLong { path, .. } => Some(path),
             ConfigError::DuplicateId { .. } => None,
         }
     }

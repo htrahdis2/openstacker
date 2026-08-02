@@ -249,6 +249,39 @@ fn validate_table<T: Tunable>(
                     });
                 }
             }
+            FieldKind::IntList {
+                min, max, max_len, ..
+            } => {
+                let Some(list) = value.as_array() else {
+                    return Err(ConfigError::NotAList {
+                        path: path.to_path_buf(),
+                        key: key.clone(),
+                    });
+                };
+                if list.len() > max_len {
+                    return Err(ConfigError::ListTooLong {
+                        path: path.to_path_buf(),
+                        key: key.clone(),
+                        len: list.len(),
+                        max: max_len,
+                    });
+                }
+                for entry in list {
+                    let n = entry.as_integer().ok_or_else(|| ConfigError::NotAList {
+                        path: path.to_path_buf(),
+                        key: key.clone(),
+                    })?;
+                    if n < min || n > max {
+                        return Err(ConfigError::OutOfRange {
+                            path: path.to_path_buf(),
+                            key: key.clone(),
+                            value: n,
+                            min,
+                            max,
+                        });
+                    }
+                }
+            }
             FieldKind::Enum { variants, .. } if !variants.is_empty() => {
                 let got = value.as_str().unwrap_or_default();
                 if !variants.iter().any(|v| v.value == got) {

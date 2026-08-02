@@ -422,3 +422,47 @@ fn a_broken_mode_directory_produces_errors_rather_than_a_file() {
     let err = config::modes_json(Path::new("../../modes/does-not-exist")).unwrap_err();
     assert!(!err.is_empty());
 }
+
+// ---- tables of numbers -----------------------------------------------------
+
+#[test]
+fn a_combo_table_entry_out_of_range_is_rejected_by_the_key_it_was_written_under() {
+    let err = parse(&format!("{MINIMAL}[config]\ncombo_table = [0, 1, 99999]\n")).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("combo_table"), "{msg}");
+    assert!(msg.contains("99999"), "{msg}");
+}
+
+#[test]
+fn a_combo_table_longer_than_the_cap_is_rejected() {
+    // Entries past the cap would be silently dropped, which is a worse outcome than
+    // being told the table is too long.
+    let long = vec!["1"; 40].join(", ");
+    let err = parse(&format!("{MINIMAL}[config]\ncombo_table = [{long}]\n")).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("combo_table"), "{msg}");
+    assert!(msg.contains("40"), "{msg}");
+}
+
+#[test]
+fn a_combo_table_that_is_not_a_list_of_numbers_says_so() {
+    for value in [r#""three""#, r#"["a", "b"]"#, "true"] {
+        let err = parse(&format!("{MINIMAL}[config]\ncombo_table = {value}\n")).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("list of whole numbers"), "{value}: {msg}");
+    }
+}
+
+#[test]
+fn a_mode_may_set_its_own_combo_table() {
+    let spec = parse(&format!("{MINIMAL}[config]\ncombo_table = [0, 2, 4]\n")).unwrap();
+    assert_eq!(spec.config.combo_table.as_slice(), [0, 2, 4]);
+}
+
+#[test]
+fn a_shorter_combo_table_is_legal() {
+    // Scoring saturates at the last entry, so a short table is a deliberate shape and
+    // not something to reject.
+    let spec = parse(&format!("{MINIMAL}[config]\ncombo_table = [0, 1]\n")).unwrap();
+    assert_eq!(spec.config.combo_bonus(200), 1);
+}

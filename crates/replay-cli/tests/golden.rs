@@ -9,7 +9,8 @@
 //! question to answer is whether that change was intended and whether the engine version
 //! needs to go up with it.
 
-use engine::{Buttons, ENGINE_VER};
+use engine::{Buttons, ENGINE_VER, Events};
+use replay::Replay;
 use std::path::{Path, PathBuf};
 
 fn repo_root() -> PathBuf {
@@ -24,12 +25,25 @@ fn replay_path(name: &str) -> PathBuf {
 }
 
 /// Every golden replay and the checksum it must produce.
+///
+/// The first five cover movement, rotation, hold and the bag. The rest clear rows, which
+/// is the half that used to be missing: without them the attack table could be rewritten
+/// from top to bottom without a single checksum moving.
 const GOLDEN: &[(&str, u64)] = &[
     ("bag_walk.replay", 0x7d10_a95d_6692_06ca),
     ("das.replay", 0x62e3_b9d1_c15c_1ea8),
     ("hold.replay", 0x62c5_a8c7_5ea7_782a),
     ("quad.replay", 0xfb51_3ebc_a0ce_19b1),
     ("rotation.replay", 0x8954_6b99_a713_c38f),
+    ("single.replay", 0xa447_af0e_7407_f65f),
+    ("double.replay", 0x4a08_b35a_73ef_e4ce),
+    ("triple.replay", 0xc61b_809a_4da6_cc50),
+    ("quad_clear.replay", 0x0a6c_1862_422f_cb45),
+    ("combo_chain.replay", 0xb475_a949_37c1_914f),
+    ("b2b_chain.replay", 0x29c9_dbd3_50b0_271b),
+    ("perfect_clear.replay", 0x94dc_fb2d_d5f2_3959),
+    ("spin_double.replay", 0xc8dc_c659_b30f_eb67),
+    ("mini_spin.replay", 0x8314_5d04_bea6_6fe5),
 ];
 
 fn load(name: &str) -> serde_json::Value {
@@ -37,6 +51,139 @@ fn load(name: &str) -> serde_json::Value {
     let text = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("could not read {}: {e}", path.display()));
     serde_json::from_str(&text).expect("a golden replay should be valid JSON")
+}
+
+/// What the scoring goldens are for.
+///
+/// `verify` already re-checks every claimed number, which is what catches a change to the
+/// attack table. This says out loud what each recording is meant to exercise, so a
+/// reviewer can see the coverage without replaying anything, and so a change shows up as
+/// a named expectation rather than a moved number.
+const SCORING: &[Expect] = &[
+    Expect {
+        file: "single.replay",
+        lines: 1,
+        attack: 0,
+        events: Events::LINES_CLEARED,
+        absent: Events::SPIN,
+    },
+    Expect {
+        file: "double.replay",
+        lines: 2,
+        attack: 1,
+        events: Events::LINES_CLEARED,
+        absent: Events::SPIN,
+    },
+    Expect {
+        file: "triple.replay",
+        lines: 3,
+        attack: 2,
+        events: Events::LINES_CLEARED,
+        absent: Events::SPIN,
+    },
+    Expect {
+        file: "quad_clear.replay",
+        lines: 4,
+        attack: 4,
+        events: Events::LINES_CLEARED,
+        absent: Events::B2B_BROKEN,
+    },
+    Expect {
+        file: "combo_chain.replay",
+        lines: 4,
+        attack: 2,
+        events: Events::LINES_CLEARED,
+        absent: Events::SPIN,
+    },
+    Expect {
+        file: "b2b_chain.replay",
+        lines: 9,
+        attack: 10,
+        events: Events::B2B_CONTINUED.union(Events::B2B_BROKEN),
+        absent: Events::PERFECT_CLEAR,
+    },
+    Expect {
+        file: "perfect_clear.replay",
+        lines: 4,
+        attack: 12,
+        events: Events::PERFECT_CLEAR,
+        absent: Events::TOPPED_OUT,
+    },
+    Expect {
+        file: "spin_double.replay",
+        lines: 2,
+        attack: 4,
+        events: Events::SPIN,
+        absent: Events::MINI_SPIN,
+    },
+    Expect {
+        file: "mini_spin.replay",
+        lines: 1,
+        attack: 0,
+        events: Events::MINI_SPIN,
+        absent: Events::SPIN,
+    },
+];
+
+struct Expect {
+    file: &'static str,
+    lines: u32,
+    attack: u32,
+    /// Flags that must appear at some point during the recording.
+    events: Events,
+    /// Flags that must never appear, so a golden cannot quietly become a test of
+    /// something else.
+    absent: Events,
+}
+
+fn read_replay(name: &str) -> Replay {
+    let text = std::fs::read_to_string(replay_path(name)).expect("golden should be readable");
+    serde_json::from_str(&text).expect("golden should be a replay")
+}
+
+/// Every flag raised over the whole recording.
+fn events_of(r: &Replay) -> Events {
+    let mut engine = engine::Engine::new(r.seed, &r.config, &r.handling);
+    let mut all = Events::empty();
+    for b in r.buttons() {
+        all |= engine.tick(b).events;
+    }
+    all
+}
+
+#[test]
+fn the_scoring_goldens_exercise_what_they_claim_to() {
+    // Before these existed, every golden was a handful of pieces that cleared nothing:
+    // the attack table could be rewritten from top to bottom without moving a checksum.
+    for e in SCORING {
+        let r = read_replay(e.file);
+        let (_, outcome) = r.simulate();
+        assert_eq!(outcome.lines, e.lines, "{}: rows cleared", e.file);
+        assert_eq!(outcome.attack, e.attack, "{}: rows sent", e.file);
+
+        let raised = events_of(&r);
+        assert!(
+            raised.contains(e.events),
+            "{}: expected {:?}, got {raised:?}",
+            e.file,
+            e.events
+        );
+        assert!(
+            !raised.intersects(e.absent),
+            "{}: {:?} should not happen here",
+            e.file,
+            e.absent
+        );
+    }
+}
+
+#[test]
+fn a_spin_is_worth_more_than_the_plain_clear_of_the_same_size() {
+    // The reason to learn spins, pinned against real recordings rather than against the
+    // scoring function's own unit tests.
+    let plain = read_replay("double.replay").simulate().1.attack;
+    let spun = read_replay("spin_double.replay").simulate().1.attack;
+    assert!(spun > plain, "spin double {spun} vs plain double {plain}");
 }
 
 #[test]

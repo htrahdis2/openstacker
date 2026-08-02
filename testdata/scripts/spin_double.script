@@ -1,0 +1,147 @@
+# A T rotated into a pocket it could not have been dropped into,
+# clearing two rows. Worth more than the plain double it would
+# otherwise be.
+
+seed: 8
+mode: sprint40
+
+# 1. T
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 2. S
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 3. O
+.
+LEFT*14
+.
+HARD_DROP
+
+# 4. L
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 5. I
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 6. J
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 7. Z
+.
+LEFT*14
+.
+SOFT_DROP
+.
+CW
+.
+HARD_DROP
+
+# 8. O
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 9. T -> 2 rows, spin, sends 4
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+SOFT_DROP
+.
+CW
+.
+HARD_DROP
+
+.

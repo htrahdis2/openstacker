@@ -1,0 +1,131 @@
+# Two rows clear at once.
+
+seed: 1
+mode: sprint40
+
+# 1. J
+LEFT*14
+.
+HARD_DROP
+
+# 2. L
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 3. Z
+.
+LEFT*14
+.
+HARD_DROP
+
+# 4. S
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 5. I
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 6. O
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 7. T
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 8. O
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 9. J -> 2 rows, sends 1
+.
+FLIP
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+.

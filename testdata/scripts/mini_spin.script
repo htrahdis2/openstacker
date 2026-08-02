@@ -1,0 +1,146 @@
+# The same pocket, entered the other way up: three corners but only
+# one of the two the T faces, which is a mini rather than a full spin.
+
+seed: 8
+mode: sprint40
+
+# 1. T
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 2. S
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 3. O
+.
+LEFT*14
+.
+HARD_DROP
+
+# 4. L
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 5. I
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 6. J
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 7. Z
+.
+LEFT*14
+.
+SOFT_DROP
+.
+CW
+.
+HARD_DROP
+
+# 8. O
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 9. T -> 1 rows, mini spin
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+SOFT_DROP
+.
+CCW
+.
+HARD_DROP
+
+.

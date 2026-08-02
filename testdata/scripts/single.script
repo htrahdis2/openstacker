@@ -1,0 +1,82 @@
+# One row completes and clears. A single sends nothing, which is the
+# first thing the attack table says.
+
+seed: 1
+mode: sprint40
+
+# 1. J
+LEFT*14
+.
+HARD_DROP
+
+# 2. L
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 3. Z
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 4. S
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 5. I -> 1 rows
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+.

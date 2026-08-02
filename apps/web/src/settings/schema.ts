@@ -56,7 +56,20 @@ export interface BindingField {
   variants: EnumVariant[];
 }
 
-export type Field = IntField | BoolField | EnumField | BindingField;
+export interface IntListField {
+  key: string;
+  label: string;
+  help: string;
+  group: string;
+  type: "intList";
+  min: number;
+  max: number;
+  maxLen: number;
+  default: number[];
+  unit: string;
+}
+
+export type Field = IntField | BoolField | EnumField | BindingField | IntListField;
 
 export interface Group {
   id: string;

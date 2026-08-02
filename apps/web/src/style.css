@@ -446,6 +446,71 @@ dd:last-of-type {
   color: #31c7ef;
 }
 
+/* A table of numbers: one cell per position, labelled by the position it rewards. */
+.settings-table {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  min-width: 0;
+}
+
+.settings-table-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.settings-table-cell span {
+  font-size: 9px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-table-cell input {
+  width: 32px;
+  padding: 3px 2px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.settings-table-cell input::-webkit-outer-spin-button,
+.settings-table-cell input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.settings-table-length {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-table-length button {
+  width: 20px;
+  padding: 1px 0;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--dim);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.settings-table-length button:hover:not(:disabled) {
+  color: var(--text);
+  border-color: #31c7ef;
+}
+
 .settings-help {
   grid-column: 1 / -1;
   margin: 0;

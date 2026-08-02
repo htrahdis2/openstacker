@@ -7,7 +7,7 @@
 
 import type { Field } from "./schema";
 
-export type ControlKind = "slider" | "toggle" | "choice" | "capture";
+export type ControlKind = "slider" | "toggle" | "choice" | "capture" | "table";
 
 /** The control a described field is rendered as. */
 export function controlFor(field: Field): ControlKind {
@@ -20,7 +20,22 @@ export function controlFor(field: Field): ControlKind {
       return "choice";
     case "binding":
       return "capture";
+    case "intList":
+      return "table";
   }
+}
+
+/**
+ * A list brought inside the bounds the schema declares.
+ *
+ * A short list is legal — scoring saturates at the last entry rather than reading past
+ * it — so only the cap and the per-entry bounds are enforced.
+ */
+export function clampToList(field: Field, values: number[]): number[] {
+  if (field.type !== "intList") return values;
+  return values
+    .slice(0, field.maxLen)
+    .map((v) => Math.min(Math.max(Math.round(v) || 0, field.min), field.max));
 }
 
 /** A value brought inside the range the schema declares. */

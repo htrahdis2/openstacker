@@ -6,7 +6,7 @@
  * unit and its help text already correct.
  */
 
-import { controlFor, duplicateBindings, readout, snapToStep } from "./controls";
+import { clampToList, controlFor, duplicateBindings, readout, snapToStep } from "./controls";
 import { SCHEMA, type Field, type Group, sections } from "./schema";
 import type { Settings } from "./store";
 
@@ -163,6 +163,65 @@ function buildControl(
       select.value = String(value);
       select.addEventListener("change", () => set(select.value));
       wrap.append(select);
+      break;
+    }
+
+    case "table": {
+      if (field.type !== "intList") break;
+      // One entry per position, labelled by the position, because that is what the
+      // number means: the reward for a run of that length.
+      const current = Array.isArray(value) ? (value as number[]).slice() : [...field.default];
+      const list = document.createElement("div");
+      list.className = "settings-table";
+
+      const rebuild = (): void => {
+        list.innerHTML = "";
+        current.forEach((entry, i) => {
+          const cell = document.createElement("label");
+          cell.className = "settings-table-cell";
+          const index = document.createElement("span");
+          index.textContent = String(i);
+          const input = document.createElement("input");
+          input.type = "number";
+          input.min = String(field.min);
+          input.max = String(field.max);
+          input.value = String(entry);
+          input.addEventListener("change", () => {
+            current[i] = Number(input.value);
+            set(clampToList(field, current));
+          });
+          cell.append(index, input);
+          list.append(cell);
+        });
+      };
+      rebuild();
+
+      const shorter = document.createElement("button");
+      shorter.type = "button";
+      shorter.textContent = "−";
+      shorter.title = "one entry fewer";
+      shorter.addEventListener("click", () => {
+        if (current.length <= 1) return;
+        current.pop();
+        set(clampToList(field, current));
+        rebuild();
+      });
+
+      const longer = document.createElement("button");
+      longer.type = "button";
+      longer.textContent = "+";
+      longer.title = "one entry more";
+      longer.addEventListener("click", () => {
+        if (current.length >= field.maxLen) return;
+        current.push(current[current.length - 1] ?? 0);
+        set(clampToList(field, current));
+        rebuild();
+      });
+
+      const length = document.createElement("div");
+      length.className = "settings-table-length";
+      length.append(shorter, longer);
+      wrap.append(list, length);
       break;
     }
 

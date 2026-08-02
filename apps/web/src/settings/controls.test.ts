@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { clampToField, controlFor, duplicateBindings, readout, snapToStep } from "./controls";
+import {
+  clampToField,
+  clampToList,
+  controlFor,
+  duplicateBindings,
+  readout,
+  snapToStep,
+} from "./controls";
 import { SCHEMA, group, sections, showsFrames, type Field } from "./schema";
 
 const field = (groupId: string, key: string): Field => {
@@ -14,7 +21,7 @@ const centiframes = (ms: number): number => Math.round((ms * 60 * 100) / 1000);
 describe("the schema the client builds from", () => {
   it("describes every setting the engine has", () => {
     const total = SCHEMA.groups.reduce((n, g) => n + g.fields.length, 0);
-    expect(total).toBe(45);
+    expect(total).toBe(47);
   });
 
   it("says which groups reach the simulation", () => {
@@ -130,5 +137,42 @@ describe("duplicateBindings", () => {
 
   it("ignores actions with nothing bound", () => {
     expect(duplicateBindings({ a: "", b: "" })).toEqual([]);
+  });
+});
+
+describe("a table of numbers", () => {
+  const combo = field("match", "combo_table");
+
+  it("is rendered as a table rather than a slider", () => {
+    expect(controlFor(combo)).toBe("table");
+  });
+
+  it("carries its bounds, its length cap and its default", () => {
+    expect(combo.type).toBe("intList");
+    if (combo.type !== "intList") return;
+    expect(combo.min).toBe(0);
+    expect(combo.maxLen).toBeGreaterThanOrEqual(combo.default.length);
+    expect(combo.default[2]).toBe(1);
+  });
+
+  it("brings entries into range and cuts the list at the cap", () => {
+    if (combo.type !== "intList") return;
+    const long = Array.from({ length: combo.maxLen + 5 }, () => combo.max + 100);
+    const clamped = clampToList(combo, long);
+    expect(clamped).toHaveLength(combo.maxLen);
+    expect(clamped.every((v) => v === combo.max)).toBe(true);
+    expect(clampToList(combo, [-4, 2])).toEqual([0, 2]);
+  });
+
+  it("leaves a short list alone, because scoring saturates at the last entry", () => {
+    expect(clampToList(combo, [0, 1])).toEqual([0, 1]);
+  });
+
+  it("is what the back-to-back reward is described as, now that it escalates", () => {
+    const b2b = field("match", "b2b_table");
+    expect(controlFor(b2b)).toBe("table");
+    if (b2b.type !== "intList") return;
+    expect(b2b.default[0]).toBe(0);
+    expect(b2b.default[b2b.default.length - 1]).toBeGreaterThan(b2b.default[1]!);
   });
 });

@@ -8,9 +8,18 @@
 import { Sound } from "./audio";
 import { Clock } from "./clock";
 import { Input, attach, keymap } from "./input";
-import { MODES, type Mode, goalReached, isPlayable, mode, remaining } from "./modes";
+import { MODES, type Mode, bestIsLongest, goalReached, isPlayable, mode, remaining } from "./modes";
 import { drawBoard, geometry } from "./render/board";
-import { drawHold, drawNext, formatPps, formatTime, garbageFill, sizeBoxes } from "./render/hud";
+import {
+  banner,
+  drawHold,
+  drawNext,
+  formatApm,
+  formatPps,
+  formatTime,
+  garbageSegments,
+  sizeBoxes,
+} from "./render/hud";
 import { skin } from "./render/palette";
 import type { Shapes } from "./render/piece";
 import {
@@ -55,13 +64,17 @@ const el = <T extends HTMLElement>(id: string): T => {
 const canvas = el<HTMLCanvasElement>("board");
 const holdCanvas = el<HTMLCanvasElement>("hold");
 const nextCanvas = el<HTMLCanvasElement>("next");
-const garbage = el("garbage");
 const garbageTrack = el("garbage-track");
+const cueCombo = el("cue-combo");
+const cueB2b = el("cue-b2b");
+const cueBanner = el("cue-banner");
 const status = el("status");
 const statTime = el("stat-time");
 const statLines = el("stat-lines");
 const statPieces = el("stat-pieces");
 const statPps = el("stat-pps");
+const statAttack = el("stat-attack");
+const statApm = el("stat-apm");
 const goalValue = el("goal-value");
 const overlay = el("overlay");
 const overlayTitle = el("overlay-title");
@@ -144,6 +157,12 @@ document.addEventListener("visibilitychange", () => {
   else clock.resume();
 });
 
+/** Rows the garbage bar is drawn full at, from the rules being played. */
+function barCapacity(mode: Mode | null): number {
+  const cap = Number(mode?.config.garbage_cap ?? 0);
+  return cap > 0 ? cap : 12;
+}
+
 function start(mode: Mode): void {
   playback = null;
   current = mode;
@@ -168,8 +187,11 @@ function start(mode: Mode): void {
 function finish(frame: Frame): void {
   phase = "done";
   const met = current ? goalReached(current.goal, frame) : false;
-  showResult(frame, met);
-  void keep(frame, met);
+  // A survival run ends by topping out, so a topout is the run finishing rather than
+  // failing. It still counts as a result worth keeping.
+  const survived = current?.goal.type === "survival";
+  showResult(frame, met, survived);
+  void keep(frame, met || survived);
 }
 
 /**
@@ -202,6 +224,7 @@ async function keep(frame: Frame, met: boolean): Promise<void> {
       db,
       { mode: stored.mode, ticks: stored.ticks, replayId: stored.id, createdAt: stored.createdAt },
       met,
+      current ? bestIsLongest(current.goal) : false,
     );
     const record = await best(db, stored.mode);
     overlayBest.hidden = !record;
@@ -307,8 +330,62 @@ function draw(): void {
   statLines.textContent = String(reading.lines);
   statPieces.textContent = String(reading.pieces);
   statPps.textContent = formatPps(reading.pieces, reading.tick);
-  garbage.style.height = `${garbageFill(reading.pendingRows) * 100}%`;
+  statAttack.textContent = String(reading.attackSent);
+  statApm.textContent = formatApm(reading.attackSent, reading.tick);
+  drawGarbage(reading);
+  drawCues(reading);
   goalValue.textContent = current ? (remaining(current.goal, reading) ?? "survive") : "—";
+}
+
+/**
+ * The incoming queue, a segment per batch, soonest at the bottom.
+ *
+ * Rebuilt from the frame block every draw. Nothing here counts rows or works out when
+ * they land: both are read from the simulation.
+ */
+function drawGarbage(reading: Frame): void {
+  const segments = garbageSegments(reading.incoming, barCapacity(current));
+  while (garbageTrack.children.length > segments.length) {
+    garbageTrack.lastElementChild?.remove();
+  }
+  while (garbageTrack.children.length < segments.length) {
+    const segment = document.createElement("div");
+    segment.className = "garbage-batch";
+    garbageTrack.append(segment);
+  }
+  segments.forEach((segment, i) => {
+    const el = garbageTrack.children[i] as HTMLElement;
+    el.style.height = `${segment.fraction * 100}%`;
+    el.classList.toggle("urgent", segment.urgent);
+    el.title = `${segment.rows} rows`;
+  });
+}
+
+/** How long a banner stays up. Cosmetic, so it may be measured in real time. */
+const BANNER_MS = 900;
+
+let bannerUntil = 0;
+
+/**
+ * Combo, back-to-back, and what the last clear was.
+ *
+ * The first two are state and are shown while they last; the third is an event and is
+ * shown briefly. Neither is worked out here — the block carries both.
+ */
+function drawCues(reading: Frame): void {
+  cueCombo.hidden = reading.combo < 2;
+  cueCombo.textContent = `combo ${reading.combo}`;
+  cueB2b.hidden = reading.b2b < 2;
+  cueB2b.textContent = `b2b ${reading.b2b}`;
+
+  const text = banner(reading);
+  if (text) {
+    cueBanner.textContent = text;
+    cueBanner.hidden = false;
+    bannerUntil = performance.now() + BANNER_MS;
+  } else if (!cueBanner.hidden && performance.now() > bannerUntil) {
+    cueBanner.hidden = true;
+  }
 }
 
 // ---- menu and results ------------------------------------------------------
@@ -325,6 +402,8 @@ function showMenu(): void {
   overlayTitle.textContent = "openstacker";
   overlayNote.textContent = "pick a mode";
   garbageTrack.classList.remove("active");
+  garbageTrack.innerHTML = "";
+  for (const cue of [cueCombo, cueB2b, cueBanner]) cue.hidden = true;
   resultList.hidden = true;
   modeList.hidden = false;
   againButton.hidden = true;
@@ -336,8 +415,8 @@ function showMenu(): void {
   showOverlay(true);
 }
 
-function showResult(frame: Frame, met: boolean): void {
-  overlayTitle.textContent = met ? "finished" : "topped out";
+function showResult(frame: Frame, met: boolean, survived: boolean): void {
+  overlayTitle.textContent = met ? "finished" : survived ? "survived" : "topped out";
   overlayNote.textContent = current?.name ?? "";
   modeList.hidden = true;
   resultList.hidden = false;
@@ -348,6 +427,16 @@ function showResult(frame: Frame, met: boolean): void {
     ["pieces", String(frame.pieces)],
     ["pps", formatPps(frame.pieces, frame.tick)],
   ];
+  // What a versus run is judged on. Shown only when there was someone to send to.
+  if (frame.attackSent > 0 || frame.garbageReceived > 0) {
+    rows.push(
+      ["sent", String(frame.attackSent)],
+      ["apm", formatApm(frame.attackSent, frame.tick)],
+      ["received", String(frame.garbageReceived)],
+      ["best combo", String(frame.maxCombo)],
+      ["best b2b", String(frame.maxB2b)],
+    );
+  }
   for (const [label, value] of rows) {
     const pair = document.createElement("div");
     const dt = document.createElement("dt");

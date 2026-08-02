@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "engine_ver": 2,
   "seed": 24301,
   "config": {
@@ -132,6 +132,7 @@
       1
     ]
   ],
+  "garbage": [],
   "claimed": {
     "final_tick": 26,
     "lines": 0,

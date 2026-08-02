@@ -19,13 +19,21 @@
           <dt>lines</dt><dd id="stat-lines">0</dd>
           <dt>pieces</dt><dd id="stat-pieces">0</dd>
           <dt>pps</dt><dd id="stat-pps">0.00</dd>
+          <dt>sent</dt><dd id="stat-attack">0</dd>
+          <dt>apm</dt><dd id="stat-apm">0.0</dd>
         </dl>
       </aside>
 
       <section class="stage">
-        <div class="garbage" id="garbage-track"><div class="garbage-fill" id="garbage"></div></div>
+        <!-- One segment per incoming batch, soonest at the bottom. -->
+        <div class="garbage" id="garbage-track"></div>
         <div class="board-wrap">
           <canvas id="board"></canvas>
+          <div class="cues" id="cues">
+            <span id="cue-combo" class="cue" hidden></span>
+            <span id="cue-b2b" class="cue" hidden></span>
+            <span id="cue-banner" class="cue cue-banner" hidden></span>
+          </div>
           <div id="overlay" class="overlay">
             <div class="card">
               <h1 id="overlay-title">openstacker</h1>

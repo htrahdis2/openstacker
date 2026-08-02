@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { MODES, type Goal, goalReached, isPlayable, mode, progress, remaining, ticksFor } from "./modes";
+import {
+  MODES,
+  type Goal,
+  bestIsLongest,
+  goalReached,
+  isPlayable,
+  mode,
+  progress,
+  remaining,
+  ticksFor,
+} from "./modes";
 
 describe("the shipped modes", () => {
   it("are the ones on disk", () => {
@@ -13,10 +23,27 @@ describe("the shipped modes", () => {
     expect(sprint?.name).toBeTruthy();
   });
 
-  it("say which ones this build can finish", () => {
+  it("say which ones this build can decide the end of", () => {
     expect(isPlayable(mode("sprint40")!.goal)).toBe(true);
     expect(isPlayable(mode("blitz")!.goal)).toBe(true);
-    expect(isPlayable(mode("versus")!.goal)).toBe(false);
+    // Versus ends by topping out, which needs something to top you out. It has one now.
+    expect(isPlayable(mode("versus")!.goal)).toBe(true);
+    expect(isPlayable({ type: "score", target: 1 })).toBe(false);
+  });
+
+  it("give versus an opponent and the others none", () => {
+    expect(mode("versus")?.sparring?.rows_max).toBeGreaterThan(0);
+    expect(mode("sprint40")?.sparring).toBeUndefined();
+  });
+});
+
+describe("personal bests", () => {
+  it("run shortest-first in a race and longest-first in a survival run", () => {
+    // A survival run ends when the player loses, so there is no finishing it and the
+    // longest one wins. Sorting those the other way would rank the worst run best.
+    expect(bestIsLongest({ type: "lines", count: 40 })).toBe(false);
+    expect(bestIsLongest({ type: "time", ms: 120_000 })).toBe(false);
+    expect(bestIsLongest({ type: "survival" })).toBe(true);
   });
 });
 

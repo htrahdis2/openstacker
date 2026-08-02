@@ -3,6 +3,7 @@ import { IDBFactory } from "fake-indexeddb";
 import type { IDBPDatabase } from "idb";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  type Best,
   type StoredReplay,
   best,
   decode,
@@ -162,5 +163,34 @@ describe("decode", () => {
 
   it("refuses a recording with no seed rather than inventing one", () => {
     expect(() => decode('{"inputs":[],"config":{},"handling":{}}')).toThrow();
+  });
+});
+
+describe("bests in a survival run", () => {
+  it("keeps the longest run rather than the shortest", async () => {
+    const db = await open(new IDBFactory());
+    const at = (ticks: number): Best => ({
+      mode: "versus",
+      ticks,
+      replayId: `r${ticks}`,
+      createdAt: ticks,
+    });
+
+    expect(await recordBest(db, at(1000), true, true)).toBe(true);
+    expect(await recordBest(db, at(500), true, true)).toBe(false);
+    expect(await recordBest(db, at(2000), true, true)).toBe(true);
+    expect((await best(db, "versus"))?.ticks).toBe(2000);
+  });
+
+  it("counts a run that ended in a topout, because that is how it ends", async () => {
+    const db = await open(new IDBFactory());
+    expect(
+      await recordBest(
+        db,
+        { mode: "versus", ticks: 900, replayId: "r", createdAt: 1 },
+        true,
+        true,
+      ),
+    ).toBe(true);
   });
 });

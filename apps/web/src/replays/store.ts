@@ -70,16 +70,22 @@ export async function best(db: IDBPDatabase, mode: string): Promise<Best | undef
 /**
  * Record a run if it beats the mode's best, and say whether it did.
  *
- * Only finished runs count. A topout is not a time.
+ * Only finished runs count: in a race, a topout is not a time. `longest` turns the
+ * comparison around for modes where the run ends when the player loses, and where the
+ * whole point is to have lasted.
  */
 export async function recordBest(
   db: IDBPDatabase,
   candidate: Best,
   finished: boolean,
+  longest = false,
 ): Promise<boolean> {
   if (!finished) return false;
   const current = await best(db, candidate.mode);
-  if (current && current.ticks <= candidate.ticks) return false;
+  if (current) {
+    const beaten = longest ? candidate.ticks > current.ticks : candidate.ticks < current.ticks;
+    if (!beaten) return false;
+  }
   await db.put("bests", candidate);
   return true;
 }

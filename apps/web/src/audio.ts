@@ -59,8 +59,18 @@ export function cuesFor(events: number, linesCleared: number): Cue[] {
   if (events & (EVENT.SPIN | EVENT.MINI_SPIN)) {
     cues.push({ id: "spin", freq: 700, duration: 0.1, type: "triangle", gain: 0.35 });
   }
+  if (events & EVENT.B2B_CONTINUED) {
+    // A chain kept alive is worth hearing: it is the difference between a quad and a
+    // quad that paid for the last one.
+    cues.push({ id: "b2b", freq: 620, duration: 0.09, type: "sine", gain: 0.3 });
+  }
   if (events & EVENT.PERFECT_CLEAR) {
     cues.push({ id: "perfect", freq: 880, duration: 0.22, type: "sine", gain: 0.45 });
+  }
+  if (events & EVENT.GARBAGE_APPLIED) {
+    // Low and short. Rows landing is something that happened to you, not something you
+    // did, and it should not sound like a reward.
+    cues.push({ id: "garbage", freq: 70, duration: 0.12, type: "sawtooth", gain: 0.32 });
   }
   if (events & EVENT.TOPPED_OUT) {
     cues.push({ id: "topout", freq: 90, duration: 0.5, type: "sawtooth", gain: 0.35 });

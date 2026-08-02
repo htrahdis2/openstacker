@@ -10,7 +10,7 @@
 //! needs to go up with it.
 
 use engine::{Buttons, ENGINE_VER, Events};
-use replay::Replay;
+use replay::{REPLAY_VERSION, Replay};
 use std::path::{Path, PathBuf};
 
 fn repo_root() -> PathBuf {
@@ -266,6 +266,20 @@ fn every_golden_replay_was_recorded_under_the_current_rules() {
             v["engine_ver"].as_u64().unwrap() as u32,
             ENGINE_VER,
             "{name} was recorded under different rules; recompile it"
+        );
+    }
+}
+
+#[test]
+fn every_golden_replay_is_written_in_the_current_format() {
+    // Not the same claim as the rules version. A golden left behind in an older format
+    // is still readable, but it stops covering the format the client actually writes.
+    for (name, _) in GOLDEN {
+        let v = load(name);
+        assert_eq!(
+            v["version"].as_u64().unwrap() as u16,
+            REPLAY_VERSION,
+            "{name} is in an older format; recompile it"
         );
     }
 }

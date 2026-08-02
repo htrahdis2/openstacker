@@ -47,7 +47,20 @@ export function ticksFor(ms: number): number {
 
 /** Whether a goal is one this build can decide the end of. */
 export function isPlayable(goal: Goal): boolean {
-  return goal.type === "lines" || goal.type === "time";
+  // Survival ends by topping out, which the client has always detected — it just had
+  // nothing to survive until versus modes carried an opponent.
+  return goal.type === "lines" || goal.type === "time" || goal.type === "survival";
+}
+
+/**
+ * Which direction a personal best runs in.
+ *
+ * Sprint and blitz are races: the shortest run wins. A survival run ends when the player
+ * loses, so the longest one wins, and every run counts — there is no such thing as
+ * finishing one.
+ */
+export function bestIsLongest(goal: Goal): boolean {
+  return goal.type === "survival";
 }
 
 export interface Progress {

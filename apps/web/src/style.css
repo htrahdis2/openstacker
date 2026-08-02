@@ -90,8 +90,10 @@ canvas {
   border: 1px solid var(--line);
   border-radius: 2px;
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  /* Soonest at the bottom: the batch about to land is the one nearest the board. */
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  gap: 1px;
   overflow: hidden;
   visibility: hidden;
 }
@@ -100,11 +102,53 @@ canvas {
   visibility: visible;
 }
 
-.garbage-fill {
+.garbage-batch {
   width: 100%;
-  height: 0;
-  background: #e0603f;
+  flex: none;
+  background: #8a4636;
   transition: height 80ms linear;
+}
+
+/* About to land. The one a player can still answer. */
+.garbage-batch.urgent {
+  background: #e0603f;
+  animation: garbage-pulse 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes garbage-pulse {
+  from {
+    opacity: 0.72;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Combo, chain, and what the last clear was. Over the board, out of the way of it. */
+.cues {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  pointer-events: none;
+}
+
+.cue {
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.cue-banner {
+  color: #31c7ef;
+  font-weight: 600;
 }
 
 /**

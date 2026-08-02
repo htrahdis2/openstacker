@@ -13,9 +13,15 @@
 //! CW
 //! .*4          # '.' means no buttons held
 //! HARD_DROP
+//! garbage: at=1 apply=60 rows=4 hole=3
 //! ```
+//!
+//! The `garbage` line hands rows to the engine the way a server or a sparring opponent
+//! would, so a recording can cover rows arriving and being cancelled without a second
+//! player in the room.
 
-use engine::Buttons;
+use engine::{Buttons, PendingGarbage};
+use replay::ScheduledGarbage;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,6 +29,7 @@ pub struct Script {
     pub seed: u64,
     pub mode: Option<String>,
     pub buttons: Vec<Buttons>,
+    pub garbage: Vec<ScheduledGarbage>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,6 +62,7 @@ pub fn parse(text: &str) -> Result<Script, ScriptError> {
     let mut seed = 0u64;
     let mut mode = None;
     let mut buttons = Vec::new();
+    let mut garbage = Vec::new();
 
     for (i, raw) in text.lines().enumerate() {
         let line_no = i + 1;
@@ -72,6 +80,13 @@ pub fn parse(text: &str) -> Result<Script, ScriptError> {
         }
         if let Some(rest) = line.strip_prefix("mode:") {
             mode = Some(rest.trim().to_string());
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("garbage:") {
+            garbage.push(parse_garbage(rest).map_err(|message| ScriptError {
+                line: line_no,
+                message,
+            })?);
             continue;
         }
         if let Some(rest) = line.strip_prefix("handling:") {
@@ -110,6 +125,51 @@ pub fn parse(text: &str) -> Result<Script, ScriptError> {
         seed,
         mode,
         buttons,
+        garbage,
+    })
+}
+
+/// `at=1 apply=60 rows=4 hole=3`, in any order.
+///
+/// `at` is the tick the rows join the queue and `apply` the tick they enter the board.
+/// Both are spelled out because the gap between them is the thing being tested.
+fn parse_garbage(rest: &str) -> Result<ScheduledGarbage, String> {
+    let (mut at, mut apply, mut rows, mut hole) = (None, None, None, 0u8);
+    for part in rest.split_whitespace() {
+        let (key, value) = part
+            .split_once('=')
+            .ok_or_else(|| format!("`{part}` should look like `at=1`"))?;
+        let n: u32 = value
+            .parse()
+            .map_err(|_| format!("`{value}` is not a number"))?;
+        match key {
+            "at" => at = Some(n),
+            "apply" => apply = Some(n),
+            "rows" => rows = Some(n),
+            "hole" => hole = n.min(u8::MAX as u32) as u8,
+            other => {
+                return Err(format!(
+                    "unknown field `{other}`, expected at, apply, rows or hole"
+                ));
+            }
+        }
+    }
+    let at_tick = at.ok_or("garbage needs `at=`, the tick it is scheduled on")?;
+    let apply_at_tick = apply.ok_or("garbage needs `apply=`, the tick it lands on")?;
+    let amount = rows.ok_or("garbage needs `rows=`")?;
+    if apply_at_tick <= at_tick {
+        return Err(format!(
+            "rows scheduled on tick {at_tick} cannot land on tick {apply_at_tick}: \
+             garbage is always scheduled ahead of where the game is"
+        ));
+    }
+    Ok(ScheduledGarbage {
+        at_tick,
+        garbage: PendingGarbage {
+            apply_at_tick,
+            amount: amount.min(u8::MAX as u32) as u8,
+            hole_col: hole,
+        },
     })
 }
 
@@ -179,6 +239,44 @@ mod tests {
         let s = parse("seed: 1234\nmode: sprint40\n").unwrap();
         assert_eq!(s.seed, 1234);
         assert_eq!(s.mode.as_deref(), Some("sprint40"));
+    }
+
+    #[test]
+    fn garbage_is_read_with_both_of_its_ticks() {
+        let s = parse("garbage: at=1 apply=60 rows=4 hole=3\n").unwrap();
+        assert_eq!(s.garbage.len(), 1);
+        assert_eq!(s.garbage[0].at_tick, 1);
+        assert_eq!(s.garbage[0].garbage.apply_at_tick, 60);
+        assert_eq!(s.garbage[0].garbage.amount, 4);
+        assert_eq!(s.garbage[0].garbage.hole_col, 3);
+    }
+
+    #[test]
+    fn garbage_fields_may_come_in_any_order_and_the_hole_may_be_left_out() {
+        let s = parse("garbage: rows=2 apply=90 at=30\n").unwrap();
+        assert_eq!(s.garbage[0].garbage.hole_col, 0);
+        assert_eq!(s.garbage[0].at_tick, 30);
+    }
+
+    #[test]
+    fn garbage_that_lands_before_it_was_scheduled_is_rejected() {
+        // The one rule the format enforces, because it is the rule the whole design
+        // rests on: rows are always scheduled ahead of where the game is.
+        let e = parse("garbage: at=60 apply=30 rows=2\n").unwrap_err();
+        assert!(e.message.contains("ahead of where the game is"), "{e}");
+    }
+
+    #[test]
+    fn an_incomplete_garbage_line_says_what_is_missing() {
+        for (text, want) in [
+            ("garbage: apply=60 rows=4", "`at=`"),
+            ("garbage: at=1 rows=4", "`apply=`"),
+            ("garbage: at=1 apply=60", "`rows=`"),
+            ("garbage: at=1 apply=60 rows=4 colour=3", "unknown field"),
+        ] {
+            let e = parse(&format!("{text}\n")).unwrap_err();
+            assert!(e.message.contains(want), "{text}: {e}");
+        }
     }
 
     #[test]

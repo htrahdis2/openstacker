@@ -1,8 +1,8 @@
 //! A game in progress, and the recording of it.
 
 use crate::frame::{FRAME_BYTES, Frame};
-use engine::{Buttons, Engine, Handling, MatchConfig, TickResult};
-use replay::Replay;
+use engine::{Buttons, Engine, Handling, MatchConfig, PendingGarbage, TickResult};
+use replay::{Replay, ScheduledGarbage};
 
 /// Ticks reserved for a recording up front: twenty minutes at 60Hz.
 ///
@@ -16,6 +16,7 @@ pub struct Game {
     frame: [u8; FRAME_BYTES],
     last: TickResult,
     inputs: Vec<Buttons>,
+    garbage: Vec<ScheduledGarbage>,
     seed: u64,
     config: MatchConfig,
     handling: Handling,
@@ -29,6 +30,7 @@ impl Game {
             frame: [0; FRAME_BYTES],
             last: TickResult::default(),
             inputs: Vec::with_capacity(REPLAY_CAPACITY),
+            garbage: Vec::new(),
             seed,
             config: config.clone(),
             handling: *handling,
@@ -42,6 +44,19 @@ impl Game {
         let out = self.engine.tick(buttons);
         self.inputs.push(buttons);
         self.refresh(out);
+    }
+
+    /// Queue rows for a future tick, and record that it happened.
+    ///
+    /// Recorded against the tick that is about to run, because that is when the engine
+    /// receives it: the pending queue is part of the checksum, so a batch replayed into
+    /// the queue a tick early or late is a different game.
+    pub fn schedule_garbage(&mut self, g: PendingGarbage) {
+        self.garbage.push(ScheduledGarbage {
+            at_tick: self.inputs.len() as u32 + 1,
+            garbage: g,
+        });
+        self.engine.schedule_garbage(g);
     }
 
     pub fn frame_bytes(&self) -> &[u8; FRAME_BYTES] {
@@ -71,7 +86,13 @@ impl Game {
 
     /// The recording so far.
     pub fn replay(&self) -> Replay {
-        Replay::record(self.seed, &self.config, &self.handling, &self.inputs)
+        Replay::record(
+            self.seed,
+            &self.config,
+            &self.handling,
+            &self.inputs,
+            &self.garbage,
+        )
     }
 
     fn refresh(&mut self, out: TickResult) {

@@ -1,15 +1,36 @@
 //! The replay format.
 //!
-//! A replay is the seed, the rules, the player's handling, and the buttons they held on
-//! every tick. Nothing else. Everything a viewer sees is re-derived by running the
-//! simulation, which is why a replay of a long game is a few hundred bytes and why the
-//! same file can be used to verify a claimed result rather than just play it back.
+//! A replay is the seed, the rules, the player's handling, and everything that went into
+//! the simulation from outside: the buttons held on every tick, and the garbage that
+//! arrived. Nothing else. What a viewer sees is re-derived by running it again, which is
+//! why a replay of a long game is a few hundred bytes and why the same file can be used
+//! to verify a claimed result rather than only to play it back.
+//!
+//! Buttons used to be the whole of it, which was true for as long as nobody could send
+//! you rows. A versus game has a second input channel, and a recording that leaves it out
+//! reproduces a different game.
 
-use engine::{Buttons, ENGINE_VER, Engine, Handling, MatchConfig};
+use engine::{Buttons, ENGINE_VER, Engine, Handling, MatchConfig, PendingGarbage};
 use serde::{Deserialize, Serialize};
 
 /// The replay file format version, bumped when the file layout changes.
-pub const REPLAY_VERSION: u16 = 1;
+///
+/// Version 2 added the garbage stream. A version 1 file simply has none, which is the
+/// right reading: it is a solo recording, and no rows ever arrived.
+pub const REPLAY_VERSION: u16 = 2;
+
+/// Garbage that entered the queue during a game, and the tick it entered on.
+///
+/// `at_tick` is not the same as `apply_at_tick` and is not redundant with it. The pending
+/// queue is part of the engine's checksum and is read when a clear cancels, so a batch
+/// that joined the queue on a different tick is a different game even if it lands on the
+/// same one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScheduledGarbage {
+    /// The tick this was handed to the engine, counting from 1 like `Engine::tick`.
+    pub at_tick: u32,
+    pub garbage: PendingGarbage,
+}
 
 /// What the recorder claims happened.
 ///
@@ -45,6 +66,12 @@ pub struct Replay {
     /// identical values. Encoding those runs turns a minute of play into a few hundred
     /// bytes, which is what makes keeping every game affordable.
     pub inputs: Vec<(u8, u8)>,
+    /// Rows that arrived from outside, in the order they were scheduled.
+    ///
+    /// Defaulted rather than required, so every version 1 recording still reads: a solo
+    /// game received nothing, which is exactly what an empty stream means.
+    #[serde(default)]
+    pub garbage: Vec<ScheduledGarbage>,
     pub claimed: Outcome,
 }
 
@@ -80,18 +107,17 @@ impl Replay {
         out
     }
 
-    /// Build a replay by running a button stream through the simulation.
+    /// Build a replay by running a button stream, and any garbage, through the
+    /// simulation.
     pub fn record(
         seed: u64,
         config: &MatchConfig,
         handling: &Handling,
         buttons: &[Buttons],
+        garbage: &[ScheduledGarbage],
     ) -> Replay {
         let mut engine = Engine::new(seed, config, handling);
-        for b in buttons {
-            engine.tick(*b);
-        }
-        let stats = engine.stats();
+        run(&mut engine, buttons, garbage);
         Replay {
             version: REPLAY_VERSION,
             engine_ver: ENGINE_VER,
@@ -99,38 +125,49 @@ impl Replay {
             config: config.clone(),
             handling: *handling,
             inputs: Replay::encode(buttons),
-            claimed: Outcome {
-                final_tick: stats.tick,
-                lines: stats.lines,
-                pieces: stats.pieces,
-                attack: stats.attack_sent,
-                checksum: engine.checksum(),
-                topped_out: engine.is_over(),
-            },
+            garbage: garbage.to_vec(),
+            claimed: outcome_of(&engine),
         }
     }
 
     /// Re-run the replay and report what actually happened.
     pub fn simulate(&self) -> (Engine, Outcome) {
         let mut engine = Engine::new(self.seed, &self.config, &self.handling);
-        for b in self.buttons() {
-            engine.tick(b);
-        }
-        let stats = engine.stats();
-        let outcome = Outcome {
-            final_tick: stats.tick,
-            lines: stats.lines,
-            pieces: stats.pieces,
-            attack: stats.attack_sent,
-            checksum: engine.checksum(),
-            topped_out: engine.is_over(),
-        };
+        run(&mut engine, &self.buttons(), &self.garbage);
+        let outcome = outcome_of(&engine);
         (engine, outcome)
     }
 
     /// Whether the rules this was recorded under still match the current build.
     pub fn is_verifiable(&self) -> bool {
         self.engine_ver == ENGINE_VER
+    }
+}
+
+/// Drive an engine through a recorded game.
+///
+/// Garbage is scheduled on the tick it was scheduled on, before that tick runs, which is
+/// where the client handed it over. Scheduling it anywhere else produces a different
+/// queue, and the queue decides what a clear cancels.
+pub fn run(engine: &mut Engine, buttons: &[Buttons], garbage: &[ScheduledGarbage]) {
+    for (i, b) in buttons.iter().enumerate() {
+        let tick = i as u32 + 1;
+        for g in garbage.iter().filter(|g| g.at_tick == tick) {
+            engine.schedule_garbage(g.garbage);
+        }
+        engine.tick(*b);
+    }
+}
+
+fn outcome_of(engine: &Engine) -> Outcome {
+    let stats = engine.stats();
+    Outcome {
+        final_tick: stats.tick,
+        lines: stats.lines,
+        pieces: stats.pieces,
+        attack: stats.attack_sent,
+        checksum: engine.checksum(),
+        topped_out: engine.is_over(),
     }
 }
 
@@ -152,6 +189,7 @@ mod tests {
             config: MatchConfig::default(),
             handling: Handling::default(),
             inputs: Replay::encode(&input),
+            garbage: Vec::new(),
             claimed: Outcome::default(),
         };
         assert_eq!(r.buttons(), input);
@@ -194,7 +232,13 @@ mod tests {
                 _ => Buttons::empty(),
             })
             .collect();
-        let r = Replay::record(42, &MatchConfig::default(), &Handling::default(), &input);
+        let r = Replay::record(
+            42,
+            &MatchConfig::default(),
+            &Handling::default(),
+            &input,
+            &[],
+        );
         let (_, actual) = r.simulate();
         assert_eq!(actual, r.claimed);
         assert!(r.is_verifiable());
@@ -203,7 +247,13 @@ mod tests {
     #[test]
     fn simulating_twice_gives_the_same_answer() {
         let input = [Buttons::HARD_DROP, Buttons::empty()].repeat(100);
-        let r = Replay::record(7, &MatchConfig::default(), &Handling::default(), &input);
+        let r = Replay::record(
+            7,
+            &MatchConfig::default(),
+            &Handling::default(),
+            &input,
+            &[],
+        );
         assert_eq!(r.simulate().1, r.simulate().1);
     }
 
@@ -211,7 +261,13 @@ mod tests {
     fn a_tampered_result_no_longer_matches() {
         // What verification is for: a claimed result that the inputs do not produce.
         let input = [Buttons::HARD_DROP, Buttons::empty()].repeat(50);
-        let mut r = Replay::record(1, &MatchConfig::default(), &Handling::default(), &input);
+        let mut r = Replay::record(
+            1,
+            &MatchConfig::default(),
+            &Handling::default(),
+            &input,
+            &[],
+        );
         r.claimed.lines += 10;
         assert_ne!(r.simulate().1, r.claimed);
     }
@@ -223,12 +279,14 @@ mod tests {
             &MatchConfig::default(),
             &Handling::default(),
             &[Buttons::HARD_DROP, Buttons::empty()].repeat(50),
+            &[],
         );
         let b = Replay::record(
             1,
             &MatchConfig::default(),
             &Handling::default(),
             &[Buttons::LEFT, Buttons::HARD_DROP, Buttons::empty()].repeat(50),
+            &[],
         );
         assert_ne!(a.claimed.checksum, b.claimed.checksum);
     }
@@ -238,7 +296,13 @@ mod tests {
         // Old replays stay watchable. They just cannot have their result re-checked
         // under rules they were not played under.
         let input = [Buttons::HARD_DROP, Buttons::empty()].repeat(10);
-        let mut r = Replay::record(1, &MatchConfig::default(), &Handling::default(), &input);
+        let mut r = Replay::record(
+            1,
+            &MatchConfig::default(),
+            &Handling::default(),
+            &input,
+            &[],
+        );
         r.engine_ver = ENGINE_VER - 1;
         assert!(!r.is_verifiable());
         let _ = r.simulate();
@@ -247,11 +311,116 @@ mod tests {
     #[test]
     fn a_replay_serializes_to_json_and_back() {
         let input = [Buttons::LEFT, Buttons::HARD_DROP, Buttons::empty()].repeat(20);
-        let r = Replay::record(9, &MatchConfig::default(), &Handling::default(), &input);
+        let r = Replay::record(
+            9,
+            &MatchConfig::default(),
+            &Handling::default(),
+            &input,
+            &[],
+        );
         let text = serde_json::to_string(&r).unwrap();
         let back: Replay = serde_json::from_str(&text).unwrap();
         assert_eq!(back, r);
         assert_eq!(back.simulate().1, r.claimed);
+    }
+
+    // ---- garbage -----------------------------------------------------------
+
+    fn garbage(at_tick: u32, apply_at_tick: u32, amount: u8) -> ScheduledGarbage {
+        ScheduledGarbage {
+            at_tick,
+            garbage: PendingGarbage {
+                apply_at_tick,
+                amount,
+                hole_col: 3,
+            },
+        }
+    }
+
+    #[test]
+    fn a_recording_that_received_rows_reproduces_them() {
+        // The property the format change exists for. Without the stream this replays as
+        // a game nobody sent anything to, and every number after the first landing is
+        // wrong.
+        let input = vec![Buttons::empty(); 200];
+        let g = [garbage(1, 60, 4)];
+        let r = Replay::record(5, &MatchConfig::default(), &Handling::default(), &input, &g);
+        assert!(r.claimed.lines == 0);
+        let (engine, actual) = r.simulate();
+        assert_eq!(actual, r.claimed);
+        assert_eq!(engine.stats().garbage_received, 4);
+    }
+
+    #[test]
+    fn dropping_the_garbage_stream_changes_the_game() {
+        let input = vec![Buttons::empty(); 200];
+        let with = Replay::record(
+            5,
+            &MatchConfig::default(),
+            &Handling::default(),
+            &input,
+            &[garbage(1, 60, 4)],
+        );
+        let without = Replay::record(
+            5,
+            &MatchConfig::default(),
+            &Handling::default(),
+            &input,
+            &[],
+        );
+        assert_ne!(with.claimed.checksum, without.claimed.checksum);
+    }
+
+    #[test]
+    fn the_tick_a_batch_was_scheduled_on_is_part_of_the_game() {
+        // The queue is in the checksum and is what a clear cancels against, so between
+        // the two scheduling ticks these are different games. They converge once the
+        // rows land, which is exactly why the difference has to be recorded rather than
+        // inferred from where they ended up.
+        let input = vec![Buttons::empty(); 30];
+        let played = |scheduled_on| {
+            let mut e = Engine::new(5, &MatchConfig::default(), &Handling::default());
+            run(&mut e, &input, &[garbage(scheduled_on, 120, 4)]);
+            e
+        };
+        let queued = played(1);
+        let not_yet = played(60);
+        assert_eq!(queued.pending_garbage().total(), 4);
+        assert_eq!(not_yet.pending_garbage().total(), 0);
+        assert_ne!(queued.checksum(), not_yet.checksum());
+    }
+
+    #[test]
+    fn a_tampered_garbage_stream_no_longer_verifies() {
+        let input = vec![Buttons::empty(); 200];
+        let mut r = Replay::record(
+            5,
+            &MatchConfig::default(),
+            &Handling::default(),
+            &input,
+            &[garbage(1, 60, 4)],
+        );
+        r.garbage[0].garbage.amount = 8;
+        assert_ne!(r.simulate().1, r.claimed);
+    }
+
+    #[test]
+    fn a_version_one_recording_reads_as_one_that_received_nothing() {
+        // Every replay captured before the stream existed is a solo game, so an absent
+        // stream and an empty one mean the same thing. Old recordings keep playing.
+        let text = r#"{
+            "version": 1,
+            "engine_ver": 2,
+            "seed": 7,
+            "config": {},
+            "handling": {},
+            "inputs": [[0, 10]],
+            "claimed": {}
+        }"#;
+        let r: Replay = serde_json::from_str(text).unwrap();
+        assert!(r.garbage.is_empty());
+        assert_eq!(r.tick_count(), 10);
+        let _ = r.simulate();
     }
 
     #[test]
@@ -267,7 +436,13 @@ mod tests {
                 }
             })
             .collect();
-        let r = Replay::record(3, &MatchConfig::default(), &Handling::default(), &input);
+        let r = Replay::record(
+            3,
+            &MatchConfig::default(),
+            &Handling::default(),
+            &input,
+            &[],
+        );
         let bytes = serde_json::to_vec(&r).unwrap().len();
         assert!(bytes < 20_000, "a minute of play took {bytes} bytes");
     }

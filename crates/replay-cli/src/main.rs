@@ -69,8 +69,11 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
 
     let mut engine = Engine::new(r.seed, &r.config, &r.handling);
     for (i, b) in r.buttons().iter().enumerate() {
-        let out = engine.tick(*b);
         let tick = i as u32 + 1;
+        for g in r.garbage.iter().filter(|g| g.at_tick == tick) {
+            engine.schedule_garbage(g.garbage);
+        }
+        let out = engine.tick(*b);
         let show = draw_every.is_some_and(|n| n > 0 && tick % n == 0)
             || (on_lock && out.contains(engine::Events::PIECE_LOCKED));
         if show {
@@ -97,6 +100,13 @@ fn cmd_run(args: &[String]) -> Result<(), String> {
             "still alive"
         }
     );
+    if !r.garbage.is_empty() {
+        println!(
+            "received {} rows in {} batches",
+            s.garbage_received,
+            r.garbage.len()
+        );
+    }
     println!("checksum {:#018x}", engine.checksum());
     Ok(())
 }
@@ -169,7 +179,13 @@ fn cmd_compile(args: &[String]) -> Result<(), String> {
         None => MatchConfig::default(),
     };
 
-    let r = Replay::record(s.seed, &config, &Handling::default(), &s.buttons);
+    let r = Replay::record(
+        s.seed,
+        &config,
+        &Handling::default(),
+        &s.buttons,
+        &s.garbage,
+    );
     let json = serde_json::to_string_pretty(&r)
         .map_err(|e| format!("could not encode the replay: {e}"))?;
     std::fs::write(&out_path, json + "\n")
@@ -196,6 +212,9 @@ fn cmd_checksum(args: &[String]) -> Result<(), String> {
     for (i, b) in r.buttons().iter().enumerate() {
         if at.is_some_and(|n| i as u32 >= n) {
             break;
+        }
+        for g in r.garbage.iter().filter(|g| g.at_tick == i as u32 + 1) {
+            engine.schedule_garbage(g.garbage);
         }
         engine.tick(*b);
     }

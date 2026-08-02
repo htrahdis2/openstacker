@@ -1,0 +1,212 @@
+# A quad answers four incoming rows, and nothing lands.
+#
+# This is the same game as quad_clear.script with four rows scheduled to arrive after the
+# quad is built. Attack is applied to the incoming queue before it is sent anywhere, so a
+# clear that exactly matches what is coming cancels it rather than trading blows: the
+# claimed attack is 0, where the same game without the rows sends 4.
+
+seed: 1
+mode: sprint40
+
+garbage: at=1 apply=600 rows=4 hole=5
+
+# 1. J
+LEFT*14
+.
+HARD_DROP
+
+# 2. L
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 3. Z
+.
+LEFT*14
+.
+HARD_DROP
+
+# 4. S
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 5. I
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 6. O
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 7. T
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 8. O
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 9. J
+.
+FLIP
+.
+LEFT*14
+.
+HARD_DROP
+
+# 10. Z
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 11. T
+.
+LEFT*14
+.
+HARD_DROP
+
+# 12. L
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+# 13. S
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+HARD_DROP
+
+# 14. I -> 4 rows, sends 4
+.
+CW
+.
+LEFT*14
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+RIGHT
+.
+HARD_DROP
+
+.

@@ -44,6 +44,8 @@ const GOLDEN: &[(&str, u64)] = &[
     ("perfect_clear.replay", 0x94dc_fb2d_d5f2_3959),
     ("spin_double.replay", 0xc8dc_c659_b30f_eb67),
     ("mini_spin.replay", 0x8314_5d04_bea6_6fe5),
+    ("garbage_land.replay", 0x19ed_e7ff_5319_a3b9),
+    ("garbage_cancel.replay", 0x0a6c_1862_422f_cb45),
 ];
 
 fn load(name: &str) -> serde_json::Value {
@@ -123,6 +125,21 @@ const SCORING: &[Expect] = &[
         events: Events::MINI_SPIN,
         absent: Events::SPIN,
     },
+    Expect {
+        file: "garbage_land.replay",
+        lines: 0,
+        attack: 0,
+        events: Events::GARBAGE_APPLIED,
+        absent: Events::LINES_CLEARED,
+    },
+    Expect {
+        file: "garbage_cancel.replay",
+        lines: 4,
+        attack: 0,
+        // Nothing lands: the quad answered the rows before they were due.
+        events: Events::LINES_CLEARED,
+        absent: Events::GARBAGE_APPLIED,
+    },
 ];
 
 struct Expect {
@@ -142,11 +159,18 @@ fn read_replay(name: &str) -> Replay {
 }
 
 /// Every flag raised over the whole recording.
+///
+/// Garbage is scheduled the way `replay::run` does it, since a recording that receives
+/// rows raises flags that a button-only replay never would.
 fn events_of(r: &Replay) -> Events {
     let mut engine = engine::Engine::new(r.seed, &r.config, &r.handling);
     let mut all = Events::empty();
-    for b in r.buttons() {
-        all |= engine.tick(b).events;
+    for (i, b) in r.buttons().iter().enumerate() {
+        let tick = i as u32 + 1;
+        for g in r.garbage.iter().filter(|g| g.at_tick == tick) {
+            engine.schedule_garbage(g.garbage);
+        }
+        all |= engine.tick(*b).events;
     }
     all
 }
@@ -184,6 +208,43 @@ fn a_spin_is_worth_more_than_the_plain_clear_of_the_same_size() {
     let plain = read_replay("double.replay").simulate().1.attack;
     let spun = read_replay("spin_double.replay").simulate().1.attack;
     assert!(spun > plain, "spin double {spun} vs plain double {plain}");
+}
+
+#[test]
+fn a_well_timed_clear_cancels_what_was_coming_instead_of_trading_blows() {
+    // Two recordings of the same game, one of which has four rows on the way. The board
+    // ends identical — the rows never land — and the attack that would have been sent is
+    // spent answering them instead.
+    let quiet = read_replay("quad_clear.replay").simulate();
+    let under_fire = read_replay("garbage_cancel.replay").simulate();
+
+    assert_eq!(quiet.1.attack, 4, "the same game with nothing incoming");
+    assert_eq!(under_fire.1.attack, 0, "all four rows answered");
+    assert_eq!(under_fire.0.stats().garbage_received, 0, "nothing landed");
+    assert_eq!(
+        quiet.1.checksum, under_fire.1.checksum,
+        "cancelled rows leave no trace on the board"
+    );
+}
+
+#[test]
+fn rows_land_on_the_tick_they_were_scheduled_for() {
+    let r = read_replay("garbage_land.replay");
+    let g = r.garbage.first().expect("this golden schedules garbage");
+    let mut engine = engine::Engine::new(r.seed, &r.config, &r.handling);
+    let buttons = r.buttons();
+
+    replay::run(
+        &mut engine,
+        &buttons[..g.garbage.apply_at_tick as usize - 1],
+        &r.garbage,
+    );
+    assert_eq!(engine.stats().garbage_received, 0, "not landed yet");
+    assert_eq!(engine.pending_garbage().total(), g.garbage.amount as u32);
+
+    let (engine, _) = r.simulate();
+    assert_eq!(engine.stats().garbage_received, g.garbage.amount as u32);
+    assert!(engine.pending_garbage().is_empty());
 }
 
 #[test]

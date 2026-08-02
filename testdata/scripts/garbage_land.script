@@ -1,0 +1,12 @@
+# Four rows arrive while nothing is happening, and the stack rises to meet them.
+#
+# The rows are scheduled at tick 1 and land at tick 60. Between those two ticks they are
+# pending: visible to a HUD, countable by a bar, and cancellable by a clear. Nothing here
+# clears, so they land.
+
+seed: 1
+mode: versus
+
+garbage: at=1 apply=60 rows=4 hole=3
+
+.*120

@@ -147,6 +147,20 @@ impl Engine {
     pub fn phase(&self) -> Phase {
         self.phase
     }
+    /// The combo run in progress: how many locks in a row have cleared rows.
+    ///
+    /// `Stats` carries the high-water mark, which is what a results screen wants. This
+    /// is the live value, which is what a HUD wants, and neither can be derived from the
+    /// other.
+    pub fn combo(&self) -> u8 {
+        self.combo
+    }
+
+    /// The back-to-back chain in progress.
+    pub fn b2b(&self) -> u8 {
+        self.b2b
+    }
+
     pub fn stats(&self) -> Stats {
         self.stats
     }

@@ -84,6 +84,14 @@ export async function recordBest(
   return true;
 }
 
+/** Rows a recording received, and the tick they were handed to the simulation on. */
+export interface RecordedGarbage {
+  atTick: number;
+  applyAtTick: number;
+  amount: number;
+  holeCol: number;
+}
+
 /**
  * The parts of a recording needed to replay it.
  *
@@ -96,11 +104,16 @@ export function decode(payload: string): {
   config: string;
   handling: string;
   buttons: number[];
+  garbage: RecordedGarbage[];
 } {
   const parsed = JSON.parse(payload) as {
     config: unknown;
     handling: unknown;
     inputs: [number, number][];
+    garbage?: {
+      at_tick: number;
+      garbage: { apply_at_tick: number; amount: number; hole_col: number };
+    }[];
   };
   const seed = /"seed"\s*:\s*(\d+)/.exec(payload);
   if (!seed) throw new Error("this recording has no seed");
@@ -115,6 +128,14 @@ export function decode(payload: string): {
     config: JSON.stringify(parsed.config),
     handling: JSON.stringify(parsed.handling),
     buttons,
+    // Absent in recordings from before the stream existed, which is the right reading:
+    // nothing was ever sent to them.
+    garbage: (parsed.garbage ?? []).map((g) => ({
+      atTick: g.at_tick,
+      applyAtTick: g.garbage.apply_at_tick,
+      amount: g.garbage.amount,
+      holeCol: g.garbage.hole_col,
+    })),
   };
 }
 

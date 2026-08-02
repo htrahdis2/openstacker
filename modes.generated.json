@@ -215,6 +215,14 @@
       },
       "id": "versus",
       "name": "Versus",
+      "sparring": {
+        "first_batch_ms": 8000,
+        "interval_ms": 6000,
+        "interval_step_ms": 250,
+        "min_interval_ms": 1500,
+        "rows_max": 4,
+        "rows_min": 1
+      },
       "spec_version": 1
     }
   ],

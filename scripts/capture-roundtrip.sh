@@ -56,6 +56,23 @@ for (const buttons of script) {
 const replay = game.finishReplay();
 writeFileSync('$OUT/captured.replay', replay);
 
+// A sparring game as well: the opponent is the only thing that writes the second input
+// channel during play, and a recording of it has to verify like any other.
+const versus = modes.modes.find((m) => m.id === 'versus');
+if (!versus) { console.error('versus is missing from the generated modes'); process.exit(1); }
+const spar = new Game(987654321n, JSON.stringify(versus.config), JSON.stringify(handling),
+  JSON.stringify(versus.sparring));
+for (let i = 0; i < 60 * 60 && !spar.isOver(); i++) spar.tick(0);
+const sparred = spar.finishReplay();
+writeFileSync('$OUT/sparring.replay', sparred);
+const sparredJson = JSON.parse(sparred);
+if (!sparredJson.garbage || sparredJson.garbage.length === 0) {
+  console.error('a minute of the sparring mode sent nothing');
+  process.exit(1);
+}
+console.log('  sparred   ' + sparredJson.garbage.length + ' batches, ' +
+  sparredJson.claimed.final_tick + ' ticks');
+
 const u64 = (text, key) => BigInt(new RegExp('\"' + key + '\"\\\\s*:\\\\s*(\\\\d+)').exec(text)[1]);
 
 const parsed = JSON.parse(replay);
@@ -73,8 +90,20 @@ for (const name of readdirSync(dir).filter((f) => f.endsWith('.replay')).sort())
   const text = readFileSync(dir + '/' + name, 'utf8');
   const original = JSON.parse(text);
   const g = new Game(u64(text, 'seed'), JSON.stringify(original.config), JSON.stringify(original.handling));
+  // Rows the recording received go back in on the tick they arrived on, and have to come
+  // out of the re-capture on the same tick again.
+  const garbage = original.garbage ?? [];
+  let tick = 0;
   for (const [bits, run] of original.inputs) {
-    for (let i = 0; i < run; i++) g.tick(bits);
+    for (let i = 0; i < run; i++) {
+      tick++;
+      for (const gb of garbage) {
+        if (gb.at_tick === tick) {
+          g.scheduleGarbage(gb.garbage.apply_at_tick, gb.garbage.amount, gb.garbage.hole_col);
+        }
+      }
+      g.tick(bits);
+    }
   }
   const recaptured = g.finishReplay();
   if (u64(recaptured, 'checksum') !== u64(text, 'checksum')) {
@@ -86,18 +115,24 @@ for (const name of readdirSync(dir).filter((f) => f.endsWith('.replay')).sort())
     console.error('  ' + name + ': the re-captured recording claims a different result');
     process.exit(1);
   }
+  if (JSON.stringify(back.garbage ?? []) !== JSON.stringify(garbage)) {
+    console.error('  ' + name + ': the re-captured recording lost or moved the rows it received');
+    process.exit(1);
+  }
   console.log('  recaptured ' + name.padEnd(20) + original.claimed.lines + ' lines, ' + original.claimed.pieces + ' pieces');
 }
 "
 
 # The tools have to accept it exactly as the client wrote it.
-output="$(cd "$ROOT" && cargo run -q -p replay-cli --bin replay -- verify "$OUT/captured.replay")"
-echo "  $output"
+for file in captured sparring; do
+  output="$(cd "$ROOT" && cargo run -q -p replay-cli --bin replay -- verify "$OUT/$file.replay")"
+  echo "  $output"
 
-if ! grep -q "verified" <<<"$output"; then
-  echo
-  echo "The client produced a recording that replay-cli does not accept." >&2
-  exit 1
-fi
+  if ! grep -q "verified" <<<"$output"; then
+    echo
+    echo "The client produced a recording that replay-cli does not accept." >&2
+    exit 1
+  fi
+done
 
 echo "capture round trip: ok"

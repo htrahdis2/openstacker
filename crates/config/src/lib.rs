@@ -11,6 +11,7 @@
 pub mod resolve;
 pub mod schema;
 pub mod settings;
+pub mod sparring;
 
 #[cfg(feature = "files")]
 pub mod error;
@@ -20,6 +21,7 @@ pub mod mode;
 pub use resolve::{HostPolicy, Layer, Resolved, resolve};
 pub use schema::{schema, schema_json};
 pub use settings::{Note, SETTINGS_VERSION, Settings};
+pub use sparring::Sparring;
 
 #[cfg(feature = "files")]
 pub use error::{ConfigError, SUPPORTED_SPEC_VERSION};

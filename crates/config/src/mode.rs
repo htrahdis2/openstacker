@@ -10,6 +10,7 @@
 //! instead.
 
 use crate::error::{ConfigError, SUPPORTED_SPEC_VERSION};
+use crate::sparring::Sparring;
 use engine::config::desc::{FieldKind, Tunable, nearest_key};
 use engine::{AttackTable, MatchConfig};
 use serde::{Deserialize, Serialize};
@@ -42,6 +43,9 @@ pub struct ModeSpec {
     pub goal: Goal,
     #[serde(default)]
     pub config: MatchConfig,
+    /// Present on modes that have something to survive. Absent everywhere else.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sparring: Option<Sparring>,
 }
 
 /// Keys allowed at the top level of a mode file.
@@ -52,6 +56,7 @@ const TOP_LEVEL_KEYS: &[&str] = &[
     "description",
     "goal",
     "config",
+    "sparring",
 ];
 
 /// Parse and validate a mode from TOML text.
@@ -117,10 +122,13 @@ pub fn parse_mode(text: &str, path: &Path) -> Result<ModeSpec, ConfigError> {
         }
     }
 
-    let spec: ModeSpec = toml::from_str(text).map_err(|source| ConfigError::Shape {
+    let mut spec: ModeSpec = toml::from_str(text).map_err(|source| ConfigError::Shape {
         path: path.to_path_buf(),
         source,
     })?;
+    if let Some(s) = spec.sparring.as_mut() {
+        s.clamp();
+    }
     Ok(spec)
 }
 

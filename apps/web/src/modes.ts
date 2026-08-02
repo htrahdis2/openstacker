@@ -15,12 +15,23 @@ export type Goal =
   | { type: "score"; target: number }
   | { type: "survival" };
 
+/** A training opponent, on modes that have something to survive. */
+export interface Sparring {
+  first_batch_ms: number;
+  interval_ms: number;
+  interval_step_ms: number;
+  min_interval_ms: number;
+  rows_min: number;
+  rows_max: number;
+}
+
 export interface Mode {
   id: string;
   name: string;
   description: string;
   goal: Goal;
   config: Record<string, unknown>;
+  sparring?: Sparring;
 }
 
 export const MODES: Mode[] = (generated as { modes: Mode[] }).modes;

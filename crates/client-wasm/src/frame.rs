@@ -8,7 +8,16 @@
 use engine::{BOARD_H, Engine, Events, MAX_PREVIEW, Phase, Piece};
 
 /// Size of the block. Fixed, so the view built at startup stays valid for the whole game.
-pub const FRAME_BYTES: usize = 64;
+///
+/// Grown from 64 when the versus HUD needed the live combo and chain and the incoming
+/// batches. The block is written once per tick and read through one view, so its size
+/// costs nothing per frame; packing new fields into the spare bytes to avoid changing one
+/// constant would have been a false economy.
+pub const FRAME_BYTES: usize = 128;
+
+/// How many incoming batches the block describes. The queue holds more; a bar that shows
+/// more than this is a bar nobody can read.
+pub const MAX_INCOMING: usize = 8;
 
 /// A falling piece has been placed and is being drawn.
 pub const FLAG_ACTIVE: u8 = 1 << 0;
@@ -48,7 +57,15 @@ pub mod offset {
     pub const ACTIVE_CELLS: usize = 36;
     pub const GHOST_CELLS: usize = 44;
     pub const PREVIEW: usize = 52;
+    pub const COMBO: usize = 59;
+    pub const B2B: usize = 60;
+    pub const INCOMING_LEN: usize = 61;
+    /// Three bytes per batch: rows, then ticks until it lands as a `u16`.
+    pub const INCOMING: usize = 64;
 }
+
+/// Bytes per entry in the incoming list.
+pub const INCOMING_STRIDE: usize = 3;
 
 /// One tick's worth of state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -78,12 +95,21 @@ pub struct Frame {
 
     pub max_combo: u8,
     pub max_b2b: u8,
+    /// The runs in progress, as opposed to the high-water marks beside them.
+    pub combo: u8,
+    pub b2b: u8,
 
     /// Rows waiting to be pushed up, across every scheduled batch.
     pub pending_rows: u16,
     pub pending_batches: u8,
     /// Ticks until the next batch lands, or 0 when nothing is scheduled.
     pub next_garbage_in: u16,
+    /// Each batch on its way, soonest first: rows, and ticks until it lands.
+    ///
+    /// The total alone cannot be drawn as separate batches, and four rows arriving now
+    /// is not the same thing to a player as four rows arriving in two seconds.
+    pub incoming: [(u8, u16); MAX_INCOMING],
+    pub incoming_len: u8,
 }
 
 impl Frame {
@@ -97,6 +123,18 @@ impl Frame {
             .map(|g| g.apply_at_tick.saturating_sub(stats.tick))
             .min()
             .unwrap_or(0);
+
+        let mut incoming = [(0u8, 0u16); MAX_INCOMING];
+        let mut batches: Vec<&engine::PendingGarbage> = queue.iter().collect();
+        batches.sort_by_key(|g| g.apply_at_tick);
+        for (slot, g) in incoming.iter_mut().zip(&batches) {
+            *slot = (
+                g.amount,
+                g.apply_at_tick
+                    .saturating_sub(stats.tick)
+                    .min(u16::MAX as u32) as u16,
+            );
+        }
 
         let mut preview = [0u8; MAX_PREVIEW];
         let kinds = engine.preview();
@@ -128,10 +166,14 @@ impl Frame {
 
             max_combo: stats.max_combo,
             max_b2b: stats.max_b2b,
+            combo: engine.combo(),
+            b2b: engine.b2b(),
 
             pending_rows: queue.total().min(u16::MAX as u32) as u16,
             pending_batches: queue.len() as u8,
             next_garbage_in: next_garbage_in.min(u16::MAX as u32) as u16,
+            incoming,
+            incoming_len: batches.len().min(MAX_INCOMING) as u8,
         }
     }
 
@@ -164,6 +206,14 @@ impl Frame {
         write_cells(&mut out[o::ACTIVE_CELLS..o::ACTIVE_CELLS + 8], self.active);
         write_cells(&mut out[o::GHOST_CELLS..o::GHOST_CELLS + 8], self.ghost);
         put(out, o::PREVIEW, &self.preview);
+        out[o::COMBO] = self.combo;
+        out[o::B2B] = self.b2b;
+        out[o::INCOMING_LEN] = self.incoming_len;
+        for (i, (rows, ticks)) in self.incoming.iter().enumerate() {
+            let at = o::INCOMING + i * INCOMING_STRIDE;
+            out[at] = *rows;
+            put(out, at + 1, &ticks.to_le_bytes());
+        }
     }
 
     fn flags(&self) -> u8 {

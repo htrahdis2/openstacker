@@ -32,3 +32,13 @@ spin_single      = 2
 spin_double      = 4
 spin_triple      = 6
 perfect_clear    = 10
+
+# The training opponent, for playing versus with nobody on the other side. Not a rule of
+# the game: it produces garbage, and garbage is recorded in the replay like any other.
+[sparring]
+first_batch_ms   = 8000
+interval_ms      = 6000
+interval_step_ms = 250
+min_interval_ms  = 1500
+rows_min         = 1
+rows_max         = 4

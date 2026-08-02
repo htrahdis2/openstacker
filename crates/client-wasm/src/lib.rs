@@ -8,11 +8,12 @@
 
 mod frame;
 mod game;
+mod sparring;
 
 pub use frame::{FRAME_BYTES, Frame};
 pub use game::Game;
 
-use config::Settings;
+use config::{Settings, Sparring};
 use engine::config::desc::Tunable;
 use engine::{
     Action, Buttons, ENGINE_VER, Handling, MatchConfig, QuadKind, ms_to_subticks,
@@ -27,18 +28,52 @@ pub struct JsGame(Game);
 #[wasm_bindgen(js_class = Game)]
 impl JsGame {
     /// Start a game from a seed and the rules to play it under.
+    ///
+    /// `sparring_json` is the training opponent from the mode file, or nothing on a mode
+    /// that has no one to survive.
     #[wasm_bindgen(constructor)]
-    pub fn new(seed: u64, config_json: &str, handling_json: &str) -> Result<JsGame, JsError> {
+    pub fn new(
+        seed: u64,
+        config_json: &str,
+        handling_json: &str,
+        sparring_json: Option<String>,
+    ) -> Result<JsGame, JsError> {
         let config: MatchConfig = serde_json::from_str(config_json)
             .map_err(|e| JsError::new(&format!("match config: {e}")))?;
         let handling: Handling = serde_json::from_str(handling_json)
             .map_err(|e| JsError::new(&format!("handling: {e}")))?;
-        Ok(JsGame(Game::new(seed, &config, &handling)))
+        let sparring: Option<Sparring> = match sparring_json.as_deref() {
+            None | Some("") => None,
+            Some(text) => Some(
+                serde_json::from_str(text)
+                    .map_err(|e| JsError::new(&format!("sparring profile: {e}")))?,
+            ),
+        };
+        Ok(JsGame(Game::with_opponent(
+            seed,
+            &config,
+            &handling,
+            sparring.as_ref(),
+        )))
     }
 
     /// Advance one tick with the buttons held during it.
     pub fn tick(&mut self, buttons: u8) {
         self.0.tick(Buttons::from_bits_retain(buttons));
+    }
+
+    /// Queue rows for a future tick, and record it in the replay.
+    ///
+    /// Called before the tick it belongs to. Playing a recording back uses this to put
+    /// the rows back where they were: the pending queue is part of the checksum and is
+    /// what a clear cancels against, so a batch replayed a tick out is a different game.
+    #[wasm_bindgen(js_name = scheduleGarbage)]
+    pub fn schedule_garbage(&mut self, apply_at_tick: u32, amount: u8, hole_col: u8) {
+        self.0.schedule_garbage(engine::PendingGarbage {
+            apply_at_tick,
+            amount,
+            hole_col,
+        });
     }
 
     /// Address of the frame block. Stable for the life of the game.
@@ -92,6 +127,8 @@ pub fn frame_layout() -> String {
     serde_json::json!({
         "bytes": FRAME_BYTES,
         "maxPreview": engine::MAX_PREVIEW,
+        "maxIncoming": frame::MAX_INCOMING,
+        "incomingStride": frame::INCOMING_STRIDE,
         "offsets": {
             "tick": o::TICK,
             "lines": o::LINES,
@@ -111,6 +148,10 @@ pub fn frame_layout() -> String {
             "pendingBatches": o::PENDING_BATCHES,
             "pendingRows": o::PENDING_ROWS,
             "nextGarbageIn": o::NEXT_GARBAGE_IN,
+            "combo": o::COMBO,
+            "b2b": o::B2B,
+            "incomingLen": o::INCOMING_LEN,
+            "incoming": o::INCOMING,
             "activeCells": o::ACTIVE_CELLS,
             "ghostCells": o::GHOST_CELLS,
             "preview": o::PREVIEW,
@@ -333,7 +374,105 @@ mod tests {
         let bytes = g.frame_bytes();
         assert_eq!(bytes.len(), FRAME_BYTES);
         assert_eq!(u32::from_le_bytes(bytes[0..4].try_into().unwrap()), 300);
-        assert_eq!(&bytes[59..], &[0; 5], "reserved bytes stay zero");
+        assert_eq!(
+            &bytes[88..],
+            &[0; FRAME_BYTES - 88],
+            "reserved bytes stay zero"
+        );
+    }
+
+    #[test]
+    fn the_block_carries_the_runs_in_progress_as_well_as_the_records() {
+        // A HUD needs the live combo; a results screen needs the high-water mark. One
+        // cannot be derived from the other, so the block carries both.
+        let mut g = game();
+        let f = g.frame();
+        assert_eq!((f.combo, f.b2b), (0, 0));
+        assert_eq!((f.max_combo, f.max_b2b), (0, 0));
+        g.tick(Buttons::HARD_DROP);
+        assert_eq!(g.frame().combo, g.engine().combo());
+    }
+
+    #[test]
+    fn incoming_batches_are_listed_soonest_first() {
+        // The total alone cannot be drawn as segments, and a bar that cannot tell four
+        // rows landing now from four rows landing later is not telling a player anything.
+        let mut g = game();
+        for (apply_at_tick, amount) in [(200, 2), (100, 4), (300, 1)] {
+            g.schedule_garbage(engine::PendingGarbage {
+                apply_at_tick,
+                amount,
+                hole_col: 3,
+            });
+        }
+        g.tick(Buttons::empty());
+
+        let f = g.frame();
+        assert_eq!(f.incoming_len, 3);
+        assert_eq!(f.pending_rows, 7);
+        let rows: Vec<u8> = f.incoming[..3].iter().map(|(r, _)| *r).collect();
+        assert_eq!(rows, [4, 2, 1], "soonest batch first");
+        let waits: Vec<u16> = f.incoming[..3].iter().map(|(_, t)| *t).collect();
+        assert_eq!(waits, [99, 199, 299]);
+        assert_eq!(f.next_garbage_in, 99);
+    }
+
+    #[test]
+    fn a_batch_recorded_by_the_client_replays_into_the_same_game() {
+        // The capture path for the second input channel: rows the client scheduled have
+        // to come back on the same tick, or the recording plays a different game.
+        let mut g = game();
+        for i in 0..120 {
+            if i == 30 {
+                g.schedule_garbage(engine::PendingGarbage {
+                    apply_at_tick: 90,
+                    amount: 4,
+                    hole_col: 5,
+                });
+            }
+            g.tick(Buttons::empty());
+        }
+        let replay = g.replay();
+        assert_eq!(replay.garbage.len(), 1);
+        assert_eq!(replay.garbage[0].at_tick, 31);
+        let (engine, actual) = replay.simulate();
+        assert_eq!(actual, replay.claimed);
+        assert_eq!(engine.stats().garbage_received, 4);
+    }
+
+    #[test]
+    fn a_sparring_game_is_reproducible_from_its_recording() {
+        // The opponent is seeded and lives in Rust, so the same seed plays the same
+        // opponent — and the recording carries what it sent, so the run replays even if
+        // the opponent changes afterwards.
+        let profile = config::Sparring {
+            first_batch_ms: 500,
+            interval_ms: 500,
+            ..Default::default()
+        };
+        let mut g = Game::with_opponent(
+            11,
+            &MatchConfig::default(),
+            &Handling::default(),
+            Some(&profile),
+        );
+        for _ in 0..600 {
+            g.tick(Buttons::empty());
+        }
+        let replay = g.replay();
+        assert!(!replay.garbage.is_empty(), "the opponent should have sent");
+        assert_eq!(replay.simulate().1, replay.claimed);
+        assert!(g.frame().garbage_received > 0, "rows should have landed");
+    }
+
+    #[test]
+    fn a_mode_with_no_opponent_receives_nothing() {
+        let mut g = game();
+        for _ in 0..1200 {
+            g.tick(Buttons::empty());
+        }
+        assert_eq!(g.frame().pending_rows, 0);
+        assert!(g.replay().garbage.is_empty());
     }
 
     #[test]
@@ -426,7 +565,7 @@ mod tests {
         // A field the client cannot find an offset for is a field it cannot draw.
         let v: serde_json::Value = serde_json::from_str(&frame_layout()).unwrap();
         let offsets = v["offsets"].as_object().unwrap();
-        assert_eq!(offsets.len(), 21);
+        assert_eq!(offsets.len(), 25);
         for (key, at) in offsets {
             let at = at.as_u64().unwrap() as usize;
             assert!(at < FRAME_BYTES, "{key} is outside the block");

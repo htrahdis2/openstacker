@@ -14,6 +14,7 @@ import { drawHold, drawNext, formatPps, formatTime, garbageFill, sizeBoxes } fro
 import { skin } from "./render/palette";
 import type { Shapes } from "./render/piece";
 import {
+  type RecordedGarbage,
   type StoredReplay,
   best,
   decode,
@@ -126,6 +127,8 @@ interface Playback {
   buttons: number[];
   at: number;
   label: string;
+  /** The rows the recording received, put back on the ticks they arrived on. */
+  garbage: RecordedGarbage[];
 }
 
 let playback: Playback | null = null;
@@ -144,7 +147,14 @@ document.addEventListener("visibilitychange", () => {
 function start(mode: Mode): void {
   playback = null;
   current = mode;
-  game = new Game(newSeed(), JSON.stringify(mode.config), JSON.stringify(settings.handling));
+  game = new Game(
+    newSeed(),
+    JSON.stringify(mode.config),
+    JSON.stringify(settings.handling),
+    // The mode's training opponent, on modes that have one. What it sends is recorded,
+    // so a sparring run replays like any other game.
+    mode.sparring ? JSON.stringify(mode.sparring) : undefined,
+  );
   views = new GameViews(game);
   clock.reset();
   input.clear();
@@ -213,6 +223,10 @@ function step(ticks: number): void {
         if (playback.at >= playback.buttons.length) {
           finish(read()!);
           break;
+        }
+        const tick = playback.at + 1;
+        for (const g of playback.garbage) {
+          if (g.atTick === tick) game.scheduleGarbage(g.applyAtTick, g.amount, g.holeCol);
         }
         game.tick(playback.buttons[playback.at++]!);
         draw();
@@ -370,9 +384,11 @@ function buildMenu(): void {
 
 /** Play a recording back through the same loop that played it live. */
 function watch(stored: StoredReplay): void {
-  const { seed, config, handling, buttons } = decode(stored.payload);
-  playback = { buttons, at: 0, label: stored.mode };
+  const { seed, config, handling, buttons, garbage } = decode(stored.payload);
+  playback = { buttons, at: 0, label: stored.mode, garbage };
   current = mode(stored.mode) ?? null;
+  // No opponent: the rows this game received are in the recording, and generating a
+  // second set would play a different game.
   game = new Game(seed, config, handling);
   views = new GameViews(game);
   clock.reset();

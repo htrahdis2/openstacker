@@ -1,6 +1,8 @@
 //! A game in progress, and the recording of it.
 
 use crate::frame::{FRAME_BYTES, Frame};
+use crate::sparring::Opponent;
+use config::Sparring;
 use engine::{Buttons, Engine, Handling, MatchConfig, PendingGarbage, TickResult};
 use replay::{Replay, ScheduledGarbage};
 
@@ -20,10 +22,21 @@ pub struct Game {
     seed: u64,
     config: MatchConfig,
     handling: Handling,
+    /// The training opponent, on modes that have one.
+    opponent: Option<Opponent>,
 }
 
 impl Game {
     pub fn new(seed: u64, config: &MatchConfig, handling: &Handling) -> Game {
+        Game::with_opponent(seed, config, handling, None)
+    }
+
+    pub fn with_opponent(
+        seed: u64,
+        config: &MatchConfig,
+        handling: &Handling,
+        sparring: Option<&Sparring>,
+    ) -> Game {
         let engine = Engine::new(seed, config, handling);
         let mut game = Game {
             engine,
@@ -34,13 +47,25 @@ impl Game {
             seed,
             config: config.clone(),
             handling: *handling,
+            opponent: sparring.map(|p| Opponent::new(seed, p)),
         };
         game.refresh(TickResult::default());
         game
     }
 
     /// Advance one tick and record the buttons that did it.
+    ///
+    /// The opponent is asked first, so anything it sends is in the queue for the tick it
+    /// was scheduled on rather than the one after — the same ordering `Replay::run` uses
+    /// to play the recording back.
     pub fn tick(&mut self, buttons: Buttons) {
+        if let Some(mut opponent) = self.opponent.take() {
+            let tick = self.inputs.len() as u32 + 1;
+            for g in opponent.due(tick, &self.config) {
+                self.schedule_garbage(g);
+            }
+            self.opponent = Some(opponent);
+        }
         let out = self.engine.tick(buttons);
         self.inputs.push(buttons);
         self.refresh(out);

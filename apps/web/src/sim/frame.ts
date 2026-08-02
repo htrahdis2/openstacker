@@ -8,6 +8,8 @@
 export interface FrameLayout {
   bytes: number;
   maxPreview: number;
+  maxIncoming: number;
+  incomingStride: number;
   offsets: Record<FrameField, number>;
   flags: { active: number; ghost: number; hold: number; over: number };
   board: { width: number; height: number; visible: number };
@@ -32,9 +34,19 @@ export type FrameField =
   | "pendingBatches"
   | "pendingRows"
   | "nextGarbageIn"
+  | "combo"
+  | "b2b"
+  | "incomingLen"
+  | "incoming"
   | "activeCells"
   | "ghostCells"
   | "preview";
+
+/** A batch of rows on its way: how many, and how long until they land. */
+export interface Incoming {
+  rows: number;
+  inTicks: number;
+}
 
 /** A cell in board coordinates: x from the left, y from the top of the buffer. */
 export interface Cell {
@@ -62,9 +74,14 @@ export interface Frame {
   preview: number[];
   maxCombo: number;
   maxB2b: number;
+  /** The runs in progress, as opposed to the records beside them. */
+  combo: number;
+  b2b: number;
   pendingRows: number;
   pendingBatches: number;
   nextGarbageIn: number;
+  /** Batches on their way, soonest first. */
+  incoming: Incoming[];
 }
 
 /** Events, matching the engine's bitset. */
@@ -96,6 +113,13 @@ export function readFrame(view: DataView, layout: FrameLayout): Frame {
     preview.push(view.getUint8(o.preview + i));
   }
 
+  const incoming: Incoming[] = [];
+  const incomingLen = Math.min(view.getUint8(o.incomingLen), layout.maxIncoming);
+  for (let i = 0; i < incomingLen; i++) {
+    const at = o.incoming + i * layout.incomingStride;
+    incoming.push({ rows: view.getUint8(at), inTicks: view.getUint16(at + 1, true) });
+  }
+
   return {
     tick: view.getUint32(o.tick, true),
     lines: view.getUint32(o.lines, true),
@@ -114,9 +138,12 @@ export function readFrame(view: DataView, layout: FrameLayout): Frame {
     preview,
     maxCombo: view.getUint8(o.maxCombo),
     maxB2b: view.getUint8(o.maxB2b),
+    combo: view.getUint8(o.combo),
+    b2b: view.getUint8(o.b2b),
     pendingRows: view.getUint16(o.pendingRows, true),
     pendingBatches: view.getUint8(o.pendingBatches),
     nextGarbageIn: view.getUint16(o.nextGarbageIn, true),
+    incoming,
   };
 }
 

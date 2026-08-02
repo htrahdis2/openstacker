@@ -40,8 +40,21 @@ for (const name of readdirSync(dir).filter((f) => f.endsWith('.replay')).sort())
   const r = JSON.parse(text);
   const game = new Game(u64(text, 'seed'), JSON.stringify(r.config), JSON.stringify(r.handling));
 
+  // Garbage goes in on the tick it was scheduled on, the way the client schedules it.
+  // The pending queue is part of the checksum and is what a clear cancels against, so a
+  // batch replayed a tick out is a different game.
+  const garbage = r.garbage ?? [];
+  let tick = 0;
   for (const [bits, run] of r.inputs) {
-    for (let i = 0; i < run; i++) game.tick(bits);
+    for (let i = 0; i < run; i++) {
+      tick++;
+      for (const g of garbage) {
+        if (g.at_tick === tick) {
+          game.scheduleGarbage(g.garbage.apply_at_tick, g.garbage.amount, g.garbage.hole_col);
+        }
+      }
+      game.tick(bits);
+    }
   }
 
   const actual = game.checksum();
